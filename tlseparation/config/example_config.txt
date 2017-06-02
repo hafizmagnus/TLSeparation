@@ -1,0 +1,7 @@
+file=D:\Dropbox\PhD\Data\LiDAR\individual_trees\
+knn=20
+slice_length=
+cluster_threshold=
+knn_downsample=
+focus=
+wood_freq=
