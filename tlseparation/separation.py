@@ -18,6 +18,7 @@ from utility.filtering import dist_majority_knn
 from utility.point_compare import get_diff
 from utility.continuous_clustering import path_clustering
 from utility.knnsearch import set_nbrs_knn
+from utility.knnsearch import subset_nbrs
 from time import time
 
 
@@ -70,6 +71,10 @@ def main(arr, knn, class_file, slice_length=0.03, cluster_threshold=0.1,
         Set of parameter used to perform the separation.
 
     """
+    
+    knn_lst = [knn * 0.7, knn * 0.85, knn, knn * 1.15, knn * 1.3]
+    knn_lst = np.array(knn_lst).astype(int)
+    vote_threshold = int(len(knn_lst))
 
     # Setting initial processing time.
     proc0 = time()
@@ -119,6 +124,24 @@ def main(arr, knn, class_file, slice_length=0.03, cluster_threshold=0.1,
           (time() - t0))
     print('%s points detected.\n' % (abs(size0 - wood.shape[0])))
     
+    # Try to separate using wlseparate_ref_voting, which uses reference values
+    # and a voting scheme to select the most likely classes to be wood or leaf.
+    print('Performing wood-leaf separation with class reference voting scheme\
+ (VOTE-REF).')
+    t0 = time()
+    size0 = wood.shape[0]
+    try:
+        wood_3, leaf_3 = wlseparate_ref_voting(arr, knn_lst, class_file,
+                                               vote_threshold, n_classes=4)
+        wood_3, leaf_3 = array_majority(wood_3, leaf_3, knn)
+        wood = np.vstack((wood, wood_3))
+    except:
+        pass
+    print('Wood-leaf REF separation completed, %s seconds elapsed.' %
+          (time() - t0))
+    print('%s points detected.\n' % (abs(size0 - wood.shape[0])))    
+    
+    
     # Removing duplicates from wood points and selecting generating leaf
     # points variabl from the difference set of wood and input array.
     wood = remove_duplicates(wood)
@@ -166,7 +189,47 @@ def main(arr, knn, class_file, slice_length=0.03, cluster_threshold=0.1,
     print('Leaf: %s points.\n' % leaf.shape[0])
 
     return wood, leaf, p
+  
+      
+def wlseparate_ref_voting(arr, knn_lst, class_file, threshold, n_classes):
+    
+    vt = []
+    
+    d_base, idx_base = set_nbrs_knn(arr, arr, np.max(knn_lst),
+                                    return_dist=True)
+                                    
+    for k in knn_lst:
+        dx_1, idx_1 = subset_nbrs(d_base, idx_base, k)
         
+        # Calculating the geometric descriptors.
+        gd_1 = geodescriptors(arr, idx_1)
+    
+        # Normalizing geometric descriptors
+        gd_1 = ((gd_1 - np.min(gd_1, axis=0)) /
+                (np.max(gd_1, axis=0) - np.min(gd_1, axis=0)))
+    
+        # Classifying the points based on the geometric descriptors.
+        classes_1, cm_1 = classify(gd_1, n_classes)
+    
+        # Selecting which classes represent wood and leaf. Wood classes are masked
+        # as True and leaf classes as False.
+        class_table = pd.read_csv(class_file)
+        class_ref = np.asarray(class_table.ix[:, 1:]).astype(float)
+        new_classes = class_select(classes_1, cm_1, class_ref)
+        
+        # Appending results to vt temporary list.
+        vt.append((new_classes == 1) | (new_classes == 2))
+    
+    
+    idf = np.array(vt[0], ndmin=2).T
+    for i in vt[1:]:
+        idf = np.hstack((idf, np.array(i, ndmin=2).T))
+    votes = np.sum(idf, axis=1)
+#        
+    mask = votes >= threshold
+    
+    return arr[mask], arr[~mask]
+
 
 def wlseparate_ref(arr, knn, class_file, knn_downsample=1,
                    n_classes=3):
