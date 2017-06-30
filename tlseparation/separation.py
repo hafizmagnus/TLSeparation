@@ -102,7 +102,7 @@ def main(arr, knn, class_file, slice_length=0.03, cluster_threshold=0.1,
     print('Performing wood-leaf separation with absolute threshold (ABS).')
     t0 = time()
     try:
-        wood_1, leaf_1 = wlseparate_abs(arr, 50, n_classes=3)
+        wood_1, leaf_1 = wlseparate_abs(arr, knn, n_classes=3)
         wood = np.vstack((wood_s, wood_1))
     except:
         wood = wood_s

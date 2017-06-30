@@ -13,3 +13,4 @@ from filtering import majority
 from filtering import class_filter
 from filtering import continuity_filter
 from filtering import array_majority
+from filtering import dist_majority_knn
