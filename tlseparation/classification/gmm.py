@@ -29,9 +29,12 @@ def classify(variables, n_classes):
     means: array
         N-dimensional array (c x n) of each class (c) parameter space means
         (n).
+    probability: array
+        Probability of samples belonging to every class in the classification.
+        Sum of sample-wise probability should be 1.
 
     """
 
     gmm = GMM(n_components=n_classes)
     gmm.fit(variables)
-    return gmm.predict(variables), gmm.means_
+    return gmm.predict(variables), gmm.means_, gmm.predict_proba(variables)

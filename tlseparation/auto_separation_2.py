@@ -11,15 +11,16 @@ import pandas as pd
 from classification.point_features import geodescriptors
 from classification.gmm import classify
 from utility.filtering import continuity_filter
-from utility.filtering import majority
-from utility.filtering import class_filter
 from utility.filtering import array_majority
+from utility.filtering import class_filter
 from utility.filtering import dist_majority_knn
 from utility.point_compare import get_diff
+from utility.point_compare import remove_duplicates
 from utility.continuous_clustering import path_clustering
 from utility.knnsearch import set_nbrs_knn
 from utility.knnsearch import subset_nbrs
 from time import time
+from sklearn.neighbors import NearestNeighbors
 
 
 def main(arr, knn, class_file, slice_length=0.03, cluster_threshold=0.1,
@@ -71,10 +72,10 @@ def main(arr, knn, class_file, slice_length=0.03, cluster_threshold=0.1,
         Set of parameter used to perform the separation.
 
     """
-    
+
     knn_lst = [knn * 0.7, knn * 0.85, knn, knn * 1.15, knn * 1.3]
     knn_lst = np.array(knn_lst).astype(int)
-    vote_threshold = int(len(knn_lst))
+    vote_threshold = 3
 
     # Setting initial processing time.
     proc0 = time()
@@ -102,7 +103,9 @@ def main(arr, knn, class_file, slice_length=0.03, cluster_threshold=0.1,
     print('Performing wood-leaf separation with absolute threshold (ABS).')
     t0 = time()
     try:
-        wood_1, leaf_1 = wlseparate_abs(arr, knn, n_classes=3)
+        wood_1, leaf_1, noclass_1 = wlseparate_abs(leaf_s, knn, n_classes=4)
+        wood_1, leaf_1 = fill_class(wood_1, leaf_1, noclass_1, knn)
+        wood_1, leaf_1 = array_majority(wood_1, leaf_1, knn)
         wood = np.vstack((wood_s, wood_1))
     except:
         wood = wood_s
@@ -116,14 +119,16 @@ def main(arr, knn, class_file, slice_length=0.03, cluster_threshold=0.1,
     t0 = time()
     size0 = wood.shape[0]
     try:
-        wood_2, leaf_2 = wlseparate_ref(arr, knn, class_file)
+        wood_2, leaf_2, noclass_2 = wlseparate_ref(arr, knn, class_file)
+        wood_2, leaf_2 = fill_class(wood_2, leaf_2, noclass_2, knn)
+        wood_2, leaf_2 = array_majority(wood_2, leaf_2, knn)
         wood = np.vstack((wood, wood_2))
     except:
         pass
     print('Wood-leaf REF separation completed, %s seconds elapsed.' %
           (time() - t0))
     print('%s points detected.\n' % (abs(size0 - wood.shape[0])))
-    
+
     # Try to separate using wlseparate_ref_voting, which uses reference values
     # and a voting scheme to select the most likely classes to be wood or leaf.
     print('Performing wood-leaf separation with class reference voting scheme\
@@ -139,9 +144,8 @@ def main(arr, knn, class_file, slice_length=0.03, cluster_threshold=0.1,
         pass
     print('Wood-leaf REF separation completed, %s seconds elapsed.' %
           (time() - t0))
-    print('%s points detected.\n' % (abs(size0 - wood.shape[0])))    
-    
-    
+    print('%s points detected.\n' % (abs(size0 - wood.shape[0])))
+
     # Removing duplicates from wood points and selecting generating leaf
     # points variabl from the difference set of wood and input array.
     wood = remove_duplicates(wood)
@@ -152,15 +156,19 @@ def main(arr, knn, class_file, slice_length=0.03, cluster_threshold=0.1,
     print('Starting majority filter.')
     t0 = time()
     wood, leaf = array_majority(wood, leaf, knn)
+    wood = remove_duplicates(wood)
+    leaf = get_diff(wood, arr)
     print('Majority filter completed, %s seconds elapsed.\n' % (time() - t0))
-    
+
     # If set True, runs a continuity filter over the wood and leaf point
     # clouds.
     if cont_filter is True:
         print('Starting continuity filter.')
         t0 = time()
-        radius = detect_nn_dist(wood, 2)
+#        radius = detect_nn_dist(wood, 2) ## YIELDED RADIU TO LARGE
+        radius = 0.025
         size0 = wood.shape[0]
+        wood, leaf = class_filter(wood, leaf, knn, 1)
         wood, leaf = continuity_filter(wood, leaf, rad=radius)
 
         # Removing duplicates from wood and leaf.
@@ -170,7 +178,7 @@ def main(arr, knn, class_file, slice_length=0.03, cluster_threshold=0.1,
               (time() - t0))
         print('%s new points detected as wood.\n' %
               (abs(size0 - wood.shape[0])))
-       
+
     # Running distance majority filter. This filter aims to make the cloud
     # more uniform by evaluating the sum of distances of each class in the
     # neighboring points.
@@ -179,60 +187,101 @@ def main(arr, knn, class_file, slice_length=0.03, cluster_threshold=0.1,
     wood, leaf = dist_majority_knn(wood, leaf, knn)
     print('Wighted majority filter completed, %s seconds elapsed.\n' %
           (time() - t0))
-    
+
     # Setting the parameters list to output. Used to control the settings
     # of the processing.
     p = [knn, slice_length, cluster_threshold, knn_downsample, freq_threshold]
-    
+
     print('Processing finished, %s seconds elapsed.\n' % (time() - proc0))
     print('Wood: %s points.' % wood.shape[0])
     print('Leaf: %s points.\n' % leaf.shape[0])
 
     return wood, leaf, p
-  
-      
-def wlseparate_ref_voting(arr, knn_lst, class_file, threshold, n_classes):
-    
+
+
+def fill_class(arr1, arr2, noclass, k):
+
+    arr = np.vstack((arr1, arr2))
+
+    class_1 = np.full(arr1.shape[0], 1, dtype=np.int)
+    class_2 = np.full(arr2.shape[0], 2, dtype=np.int)
+    classes = np.hstack((class_1, class_2)).T
+
+    nbrs = NearestNeighbors(leaf_size=25, n_jobs=-1).fit(arr)
+    indices = nbrs.kneighbors(noclass, n_neighbors=k, return_distance=False)
+
+    # Allocating output variable.
+    new_class = np.zeros(noclass.shape[0])
+
+    # Selecting subset of classes based on the neighborhood expressed by
+    # indices.
+    class_ = classes[indices]
+
+    # Looping over all points in indices.
+    for i in range(len(indices)):
+
+        # Counting the number of occurrences of each value in the ith instance
+        # of class_.
+        unique, count = np.unique(class_[i, :], return_counts=True)
+        # Appending the majority class into the output variable.
+        new_class[i] = unique[np.argmax(count)]
+
+    arr1 = np.vstack((arr1, noclass[new_class == 1]))
+    arr2 = np.vstack((arr2, noclass[new_class == 2]))
+
+    assert ((arr1.shape[0] + arr2.shape[0]) ==
+            (arr.shape[0] + noclass.shape[0]))
+
+    return arr1, arr2
+
+
+def wlseparate_ref_voting(arr, knn_lst, class_file, threshold, n_classes=3,
+                          prob_threshold=0.95):
+
     vt = []
-    
+
     d_base, idx_base = set_nbrs_knn(arr, arr, np.max(knn_lst),
                                     return_dist=True)
-                                    
+
     for k in knn_lst:
         dx_1, idx_1 = subset_nbrs(d_base, idx_base, k)
-        
+
         # Calculating the geometric descriptors.
         gd_1 = geodescriptors(arr, idx_1)
-    
-        # Normalizing geometric descriptors
-        gd_1 = ((gd_1 - np.min(gd_1, axis=0)) /
-                (np.max(gd_1, axis=0) - np.min(gd_1, axis=0)))
-    
+
         # Classifying the points based on the geometric descriptors.
-        classes_1, cm_1 = classify(gd_1, n_classes)
-    
-        # Selecting which classes represent wood and leaf. Wood classes are masked
-        # as True and leaf classes as False.
+        classes_1, cm_1, proba_1 = classify(gd_1, n_classes)
+        cm_1 = ((cm_1 - np.min(cm_1, axis=0)) /
+                (np.max(cm_1, axis=0) - np.min(cm_1, axis=0)))
+        # Masking classes according to their predicted posterior probability of
+        # belonging on each class. If probability is smaller than a given
+        # threshold, point will be masked as not classified.
+        prob_mask = np.max(proba_1, axis=1) >= prob_threshold
+
+        # Selecting which classes represent wood and leaf. Wood classes are
+        # masked as True and leaf classes as False.
         class_table = pd.read_csv(class_file)
         class_ref = np.asarray(class_table.ix[:, 1:]).astype(float)
         new_classes = class_select(classes_1, cm_1, class_ref)
-        
+
+        # Masking low probability classes (lower than threshold) to -1.
+        new_classes[~prob_mask] = -1
+
         # Appending results to vt temporary list.
         vt.append((new_classes == 1) | (new_classes == 2))
-    
-    
+
     idf = np.array(vt[0], ndmin=2).T
     for i in vt[1:]:
         idf = np.hstack((idf, np.array(i, ndmin=2).T))
     votes = np.sum(idf, axis=1)
-#        
+
     mask = votes >= threshold
-    
+
     return arr[mask], arr[~mask]
 
 
 def wlseparate_ref(arr, knn, class_file, knn_downsample=1,
-                   n_classes=3):
+                   n_classes=3, prob_threshold=0.95):
 
     """
     Primary wood-leaf separation code.
@@ -280,27 +329,30 @@ def wlseparate_ref(arr, knn, class_file, knn_downsample=1,
     # Calculating the geometric descriptors.
     gd_1 = geodescriptors(arr, idx_1)
 
-    # Normalizing geometric descriptors
-    gd_1 = ((gd_1 - np.min(gd_1, axis=0)) /
-            (np.max(gd_1, axis=0) - np.min(gd_1, axis=0)))
-
     # Classifying the points based on the geometric descriptors.
-    classes_1, cm_1 = classify(gd_1, n_classes)
+    classes_1, cm_1, proba_1 = classify(gd_1, n_classes)
+    cm_1 = ((cm_1 - np.min(cm_1, axis=0)) /
+            (np.max(cm_1, axis=0) - np.min(cm_1, axis=0)))
+    # Masking classes according to their predicted posterior probability of
+    # belonging on each class. If probability is smaller than a given
+    # threshold, point will be masked as not classified.
+    prob_mask = np.max(proba_1, axis=1) >= prob_threshold
 
     # Selecting which classes represent wood and leaf. Wood classes are masked
     # as True and leaf classes as False.
     class_table = pd.read_csv(class_file)
     class_ref = np.asarray(class_table.ix[:, 1:]).astype(float)
-    new_classes = class_select(classes_1, cm_1, class_ref)
-
+    new_classes = class_select(classes_1[prob_mask], cm_1, class_ref)
     mask_1 = (new_classes == 1) | (new_classes == 2)
 
     # Returning the wood and leaf points based on the class selection mask.
     # mask represent wood points, (~) not mask represent leaf points.
-    return arr[mask_1, :], arr[~mask_1, :]
+    return (arr[prob_mask][mask_1, :], arr[prob_mask][~mask_1, :],
+            arr[~prob_mask])
 
 
-def wlseparate_abs(arr, knn, knn_downsample=1, n_classes=2):
+def wlseparate_abs(arr, knn, knn_downsample=1, n_classes=2,
+                   prob_threshold=0.95):
 
     """
     Primary wood-leaf separation code.
@@ -349,15 +401,21 @@ def wlseparate_abs(arr, knn, knn_downsample=1, n_classes=2):
     gd_1 = geodescriptors(arr, idx_1)
 
     # Classifying the points based on the geometric descriptors.
-    classes_1, cm_1 = classify(gd_1, n_classes)
+    classes_1, cm_1, proba_1 = classify(gd_1, n_classes)
+    # Masking classes according to their predicted posterior probability of
+    # belonging on each class. If probability is smaller than a given
+    # threshold, point will be masked as not classified.
+    prob_mask = np.max(proba_1, axis=1) >= prob_threshold
 
     # Selecting which classes represent wood and leaf. Wood classes are masked
     # as True and leaf classes as False.
-    mask_1 = class_select_abs(classes_1, cm_1, idx_1, filt='all')
+    mask_1 = class_select_abs(classes_1[prob_mask], cm_1,
+                              idx_1[prob_mask])
 
     # Returning the wood and leaf points based on the class selection mask.
     # mask represent wood points, (~) not mask represent leaf points.
-    return arr[mask_1, :], arr[~mask_1, :]
+    return (arr[prob_mask][mask_1, :], arr[prob_mask][~mask_1, :],
+            arr[~prob_mask])
 
 
 def class_select(classes, cm, classes_ref):
@@ -403,7 +461,7 @@ def class_select(classes, cm, classes_ref):
     return new_classes
 
 
-def class_select_abs(classes, cm, nbrs_idx, filt=None):
+def class_select_abs(classes, cm, nbrs_idx, feature=5, threshold=0.5):
 
     """
     Function to select from the classification results which classes
@@ -419,8 +477,11 @@ def class_select_abs(classes, cm, nbrs_idx, filt=None):
     nbrs_idx: array_like
         Nearest Neighbors indices relative to every point of the array
         that originated the classes labels.
-    filt: string
-        Option to filter or not the classes labels.
+    feature: int
+        Column id of the feature to use as constraint.
+    threshold: float
+        Threshold value to mask classes. All classes with means >= threshold
+        are masked as true.
 
     Returns
     -------
@@ -432,14 +493,9 @@ def class_select_abs(classes, cm, nbrs_idx, filt=None):
 
     # Calculating the ratio of first 3 components of the classes means (cm).
     # These components are the basic geometric descriptors.
-    if np.max(np.sum(cm, axis=1)) >= 0.5:
+    if np.max(np.sum(cm, axis=1)) >= threshold:
 
-        class_id = np.argmax(cm[:, 5])
-
-        if filt == 'class':
-            classes = class_filter(classes, class_id, nbrs_idx)
-        elif filt == 'all':
-            classes = majority(classes, nbrs_idx)
+        class_id = np.argmax(cm[:, feature])
 
         # Masking classes based on the criterias set above. Mask will present
         # True for wood points and False for leaf points.
@@ -449,58 +505,3 @@ def class_select_abs(classes, cm, nbrs_idx, filt=None):
         mask = []
 
     return mask
-
-
-def remove_duplicates(arr):
-
-    """
-    Function to remove duplicated rows from an array.
-
-    Parameters
-    ----------
-    arr: array
-        N-dimensional array (m x n) containing a set of parameters (n) over a
-        set of observations (m).
-
-    Returns
-    -------
-    unique: array
-        N-dimensional array (m* x n) containing a set of unique parameters (n)
-        over a set of unique observations (m*).
-
-    """
-
-    # Setting the pandas.DataFrame from the array (arr) data.
-    df = pd.DataFrame({'x': arr[:, 0], 'y': arr[:, 1], 'z': arr[:, 2]})
-
-    # Using the drop_duplicates function to remove the duplicate points from
-    # df.
-    unique = df.drop_duplicates(['x', 'y', 'z'])
-
-    return np.asarray(unique)
-
-
-def detect_nn_dist(arr, knn):
-    
-    """
-    Function to calculate the optimum distance among neighboring points.
-    
-    Parameters
-    ----------
-    arr: array
-        N-dimensional array (m x n) containing a set of parameters (n) over a
-        set of observations (m).
-    knn: int
-        Number of nearest neighbors to search to constitue the local subset of
-        points around each point in 'arr'.
-        
-    Returns
-    -------
-    dist: float
-        Optimal distance among neighboring points.
-        
-    """
-    
-    dist, indices = set_nbrs_knn(arr, arr, knn)
-
-    return np.mean(dist[:, 1:]) + (np.std(dist[:, 1:]))

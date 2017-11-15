@@ -43,3 +43,33 @@ def get_diff(arr1, arr2):
     diff = df.drop_duplicates(keep=False)
 
     return np.asarray(diff)
+
+
+def remove_duplicates(arr, return_ids=False):
+
+    """
+    Function to remove duplicated rows from an array.
+
+    Parameters
+    ----------
+    arr: array
+        N-dimensional array (m x n) containing a set of parameters (n) over a
+        set of observations (m).
+
+    Returns
+    -------
+    unique: array
+        N-dimensional array (m* x n) containing a set of unique parameters (n)
+        over a set of unique observations (m*).
+
+    """
+
+    # Setting the pandas.DataFrame from the array (arr) data.
+    df = pd.DataFrame({'x': arr[:, 0],
+                       'y': arr[:, 1], 'z': arr[:, 2]})
+
+    # Using the drop_duplicates function to remove the duplicate points from
+    # df.
+    unique = df.drop_duplicates(['x', 'y', 'z'])
+
+    return np.asarray(unique).astype(float)

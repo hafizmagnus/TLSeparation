@@ -9,12 +9,12 @@ import networkx as nx
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
 import itertools
-import pandas as pd
 from point_compare import get_diff
 
 
 def calculate_path_mixed_nn(arr, n_neighbors=5, base=[], nn_step=2,
-                            dist_threshold=np.inf, return_path=True, maxiter=20):
+                            dist_threshold=np.inf, return_path=True,
+                            maxiter=20):
 
     """
     Function to calculate the shortest path of all reachable points in an
@@ -52,33 +52,10 @@ def calculate_path_mixed_nn(arr, n_neighbors=5, base=[], nn_step=2,
         each node.
 
     """
-    # Checking for the existance of a base point, otherwise, create it.
-    if len(base) < 1:
-        base = base_center(arr)
-    arr = np.vstack((base, arr))
 
-    arr_rem = arr
-
-    # Initializing Graph.
-    G = nx.Graph()
-
-    iter_ = 0
-    while arr_rem.shape[0] > 0 and iter_ <= maxiter:
-
-        print iter_
-        print arr_rem.shape[0]
-        if arr_rem.shape[0] > 0:
-
-            G = create_graph_nn(G, arr, arr_rem, n_neighbors, dist_threshold)
-
-            n_ids, _ = extract_path_info(G, arr, 0, return_path=False)
-            n = arr[n_ids]
-
-            arr_rem = get_diff(n, arr)
-
-            n_neighbors = n_neighbors + nn_step
-
-        iter_ += 1
+    G = create_graph_iter(arr, n_neighbors=n_neighbors, base=[],
+                          nn_step=nn_step, dist_threshold=dist_threshold,
+                          maxiter=maxiter)
 
     if return_path is True:
         nodes_ids, distance, path_list = extract_path_info(G, arr, 0)
@@ -111,7 +88,41 @@ def extract_path_info(G, arr, base_id, return_path=True):
         return nodes_ids, distance
 
 
-def create_graph_nn(G, arr, arr_rem, n_neighbors, threshold):
+def create_graph_iter(arr, n_neighbors=5, base=[], nn_step=2,
+                      dist_threshold=np.inf, maxiter=20):
+
+    # Checking for the existance of a base point, otherwise, create it.
+    if len(base) > 1:
+        arr = np.vstack((base, arr))
+
+    arr_rem = arr
+
+    # Initializing Graph.
+    G = nx.Graph()
+
+    iter_ = 0
+    while arr_rem.shape[0] > 0 and iter_ <= maxiter:
+
+        print iter_
+        print arr_rem.shape[0]
+        if arr_rem.shape[0] > 0:
+
+            G = create_graph_simple(G, arr, arr_rem, n_neighbors,
+                                    dist_threshold)
+
+            n_ids, _ = extract_path_info(G, arr, 0, return_path=False)
+            n = arr[n_ids]
+
+            arr_rem = get_diff(n, arr)
+
+            n_neighbors = n_neighbors + nn_step
+
+        iter_ += 1
+
+    return G
+
+
+def create_graph_simple(G, arr, arr_rem, n_neighbors, threshold):
 
     """
     Function to create a Graph using the knn search approach.

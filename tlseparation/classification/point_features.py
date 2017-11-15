@@ -9,7 +9,7 @@ for a 3D point cloud.
 import numpy as np
 
 
-def geodescriptors(arr, nbr_idx, norm=False):
+def geodescriptors(arr, nbr_idx):
 
     """
     Function to calculate the geometric descriptors: salient features and
@@ -44,11 +44,6 @@ def geodescriptors(arr, nbr_idx, norm=False):
 
     # Replacing the 'nan' values for 0.
     features[np.isnan(features)] = 0
-
-    # Normalizing the salient features.
-    if norm is True:
-        features[:, :3] = (features[:, :3].T /
-                           np.sum(features[:, :3], axis=1)).T
 
     return features
 

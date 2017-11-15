@@ -10,7 +10,7 @@ import pandas as pd
 from point_compare import get_diff
 from knnsearch import set_nbrs_knn
 from knnsearch import set_nbrs_rad
-from shortpath_mod import calculate_path_mixed_nn
+from shortpath_nn import calculate_path_mixed_nn
 from sklearn.neighbors import NearestNeighbors
 
 
@@ -43,7 +43,7 @@ def dist_majority_knn(arr_1, arr_2, knn):
     # Generating the indices for the local subsets of points around all points
     # in the combined array.
     dist, indices = set_nbrs_knn(arr, arr, knn)
-    
+
     # Generating the class arrays from both classified arrays and combining
     # them into a single classes array (classes).
     class_1 = np.full(arr_1.shape[0], 1, dtype=np.int)
@@ -59,7 +59,7 @@ def dist_majority_knn(arr_1, arr_2, knn):
 
     # Looping over all points in indices.
     for i in range(len(indices)):
-        
+
         # Obtaining classe from indices i.
         c = class_[i, :]
         # Caculating accummulated distance for each class.
@@ -76,7 +76,7 @@ def dist_majority_knn(arr_1, arr_2, knn):
 
 
 def continuity_filter(wood, leaf, rad=0.05, n_samples=[]):
-    
+
     """
     Function to apply a continuity filter to a point cloud that contains gaps
     defined as points from a second point cloud.
@@ -84,33 +84,33 @@ def continuity_filter(wood, leaf, rad=0.05, n_samples=[]):
     wood portion of a tree point cloud and the gaps in it are empty space
     or missclassified leaf data. In this sense, this function tries to correct
     gaps where leaf points are present.
-    
+
     Parameters
     ----------
     wood: array
         Wood point cloud to be filtered.
     leaf: array
-        Leaf point cloud, that might be causing discontinuities in the 
+        Leaf point cloud, that might be causing discontinuities in the
         wood point cloud.
     rad: float
         Radius to search for neighboring points in the iterative process.
     n_samples:
         Number of samples to calculate the shortest path procedure and the
         upscale to the whole point cloud (wood + leaf).
-    
+
     Returns
     -------
     wood: array
         Filtered wood point cloud.
-        
+
     not_wood: array
         Remaining point clouds after the filtering.
-        
+
     """
 
     # Stacking wood and leaf arrays.
     arr = np.vstack((wood, leaf))
-    
+
     # Obtaining wood point cloud indices.
     wood_id = np.arange(wood.shape[0])
 
@@ -126,7 +126,9 @@ def continuity_filter(wood, leaf, rad=0.05, n_samples=[]):
     arr_sample = arr[s]
 
     # Calculating shortest path graph over sampled array.
-    nodes, dist, path = calculate_path_mixed_nn(arr_sample, n_neighbors=3)
+#    nodes, dist, path = calculate_path_mixed_nn(arr_sample, n_neighbors=3)
+    nodes, nodes_ids, dist = calculate_path_mixed_nn(arr_sample, n_neighbors=3,
+                                                     return_path=False)
 
     # Generating nearest neighbors search for the entire point cloud (arr).
     nbrs = NearestNeighbors(algorithm='kd_tree', leaf_size=10,
@@ -134,7 +136,7 @@ def continuity_filter(wood, leaf, rad=0.05, n_samples=[]):
 
     # Converting dist variable to array, as it is originaly a list.
     dist = np.asarray(dist)
-    
+
     # Upscaling dist to entire point cloud (arr).
     dist = apply_nn_value(nodes, arr, dist)
 
@@ -186,7 +188,7 @@ def continuity_filter(wood, leaf, rad=0.05, n_samples=[]):
 
         # Passing accummulated distances from new points to d.
         d = dist[diff]
-        
+
         # Stacking new points to initial wood points and removing duplicates.
         gp = np.vstack((gp, pts))
         gp = remove_duplicates(gp)
@@ -229,11 +231,11 @@ def remove_duplicates(arr):
 
 
 def apply_nn_value(base, arr, attr):
-    
+
     """
     Fundtion to upscale a set of attributes from a base array to another
     denser array.
-    
+
     Parameters
     ----------
     base: array
@@ -242,14 +244,14 @@ def apply_nn_value(base, arr, attr):
         Target array to which the attributes will be upscaled.
     attr: array
         Attributes to upscale.
-        
+
     Returns
     -------
     new_attr: array
         Upscales attributes.
-        
+
     """
-    
+
     nbrs = NearestNeighbors(n_neighbors=1, algorithm='kd_tree',
                             leaf_size=10, n_jobs=-1).fit(base)
     idx = nbrs.kneighbors(arr, return_distance=False)
