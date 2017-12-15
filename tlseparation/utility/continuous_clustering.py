@@ -1,69 +1,106 @@
-# -*- coding: utf-8 -*-
-"""
-@author: Matheus Boni Vicari (matheus.boni.vicari@gmail.com)
-"""
+# Copyright (c) 2017, Matheus Boni Vicari, TLSeparation Project
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+#     1. Redistributions of source code must retain the above copyright notice,
+#        this list of conditions and the following disclaimer.
+#
+#     2. Redistributions in binary form must reproduce the above copyright
+#        notice, this list of conditions and the following disclaimer in the
+#        documentation and/or other materials provided with the distribution.
+#
+#     3. Neither the name of the Raysect Project nor the names of its
+#        contributors may be used to endorse or promote products derived from
+#        this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
+__author__ = "Matheus Boni Vicari"
+__copyright__ = "Copyright 2017, TLSeparation Project"
+__credits__ = ["Matheus Boni Vicari"]
+__license__ = "GPL3"
+__version__ = "1.2.1.1"
+__maintainer__ = "Matheus Boni Vicari"
+__email__ = "matheus.boni.vicari@gmail.com"
+__status__ = "Development"
 
 import numpy as np
-from shortpath import calculate_path
+from shortpath import (array_to_graph, extract_path_info)
 from sklearn.neighbors import NearestNeighbors
-import scipy.cluster.hierarchy as hcluster
-from point_compare import get_diff
-from shortpath_mod import calculate_path_mixed
+from data_utils import get_diff
 import hdbscan
 
 
 def path_clustering(arr, knn, slice_length, cluster_threshold,
-                    freq_threshold=0.6):
+                    growth_radius, freq_threshold=0.6, max_diam=1):
 
     """
-    Function to generate the path clustering of a point cloud with a defined
+    Generates the path clustering of a point cloud with a defined
     root point.
 
-    Parameters
-    ----------
-    arr: array_like
-        N-dimensional array (m x n) containing a set of parameters (n) over
-        a set of observations (m). In this case, the set of parameters are the
-        point cloud coordinates, where each row represents a point.
-    knn: int
-        Number of nearest neighbors to use in the reconstruction of point cloud
-        around the generated path nodes. A high value may lead to unnecessary
-        duplication of steps. A low value may lead to gaps in the reconstructed
-        point cloud.
-    slice_length: float
-        Length of the slices of the data in 'arr'.
-    cluster_threshold: float
-        Distance threshold to be used as constraint in the slice clustering
-        step.
+    Args:
+        arr (array): N-dimensional array (m x n) containing a set of
+            parameters (n) over a set of observations (m). In this case, the
+            set of parameters are the point cloud coordinates, where each row
+            represents a point.
+        knn (int): Number of nearest neighbors to use in the reconstruction of
+            point cloud around the generated path nodes. A high value may lead
+            to unnecessary duplication of steps. A low value may lead to gaps
+            in the reconstructed point cloud.
+        slice_length (float): Length of the slices of the data in 'arr'.
+        cluster_threshold (float): Distance threshold to be used as constraint
+            in the slice clustering step.
 
-    Returns
-    -------
-    wood: array
-        N-dimensional array (w x n) containing the (w) points classified as
-        wood from the path reconstruction. The columns (n) represents the
-        3D coordinates of each point.
-    leaf: array
-        N-dimensional array (l x n) containing the (l) points not classified as
-        wood and, therefore, classified as leaf. The columns (n) represents the
-        3D coordinates of each point.
+    Returns:
+        wood (array): N-dimensional array (w x n) containing the (w) points
+            classified as wood from the path reconstruction. The columns (n)
+            represents the   3D coordinates of each point.
+        leaf (array): N-dimensional array (l x n) containing the (l) points
+            not classified as wood and, therefore, classified as leaf. The
+            columns (n) represents the 3D coordinates of each point.
 
     """
 
     # Slicing and clustering the data to generate the center points of
     # every cluster. Return also the cluster data and the diameter of
     # each cluster.
-    nodes_data, nodes_diameter, nodes, dist  = slice_nodes(arr, slice_length,
-                                                            cluster_threshold)
+    nodes_data, nodes_diameter, _, _ = slice_nodes(arr, slice_length,
+                                                   cluster_threshold)
 
-    # Obtaining the central nodes coordinates (tree skeleton points).
+    # Obtaining the central nodes coordinates (tree skeleton points) and
+    # their respective diameters.
     central_nodes = np.asarray(nodes_data.keys())
+    diameter = np.asarray(nodes_diameter.values())
+
+    # Filtering central_nodes by a maximum diameter to prevent clusters too
+    # large affecting the segmentation.
+    mask = diameter <= max_diam
+    central_nodes = central_nodes[mask]
+
+    # Detecting base point of central_nodes.
+    base_point = np.argmin(central_nodes[:, 2])
 
     # Calculating the shortest path over the central nodes.
-    gnodes, gdist, gpath = calculate_path(central_nodes, 'knn', 10)
-    gdist = np.array(gdist)
+    G = array_to_graph(central_nodes, base_point, 3, 100, 0.05, 0.02, 0.5)
+    nodes_ids, dist, path = extract_path_info(G, base_point,
+                                              return_path=True)
+    gnodes = central_nodes[nodes_ids]
+    gdist = np.array(dist)
 
     # Extracting all the nodes in the shortest path.
-    gpath = gpath.values()
+    gpath = path.values()
     gpath_nodes = [i for j in gpath for i in j]
 
     # Obtaining all unique values in the central nodes path and their
@@ -73,40 +110,52 @@ def path_clustering(arr, knn, slice_length, cluster_threshold,
     # Log transforming the frequency values.
     freq_log = np.log(freq)
 
-    # Filtering the central nodes based on the frequency of paths
-    # that contains each node.
+    # Filtering central nodes based on the frequency of paths passing by
+    # each node.
     gp = gnodes[freq_log >= (np.max(freq_log) * freq_threshold)]
-#    gpdist = gdist[freq_log >= (np.max(freq_log) * freq_threshold)]
 
     # Obtaining list of close nodes that are not yet in 'gp' and stacking them
     # to 'gp'. This step aims to fill the gaps between nodes from 'gp'.
-    nbrs = NearestNeighbors(leaf_size=15, n_jobs=-1)
-    nbrs.fit(gnodes)
+    nbrs = NearestNeighbors(leaf_size=15, n_jobs=-1).fit(gnodes)
 
+    # Getting list of neares neighbors to each point in gp.
     idx = nbrs.kneighbors(gp, n_neighbors=knn, return_distance=False)
     idx = np.unique(idx)
 
+    # Stacking gp with new neighboring indices.
     gp = np.vstack((gp, gnodes[idx]))
+    # Initializing array of selected points 'pts'.
     pts = gp
 
+    # Calculating number of points in gp.
     npw = gp.shape[0]
 
+    # Setting initial diffrence value (e) and difference threhsold
+    # (e_threshold). These values will be used to detect when to stop the
+    # iterative process of filling gaps.
     e = 9999999
     e_threshold = 10
 
+    # While the new number of points are smaller than threshold.
     while e > e_threshold:
-        idx = nbrs.radius_neighbors(pts, radius=0.06,
+        # Get new neighbors current set of selected points (pts).
+        idx = nbrs.radius_neighbors(pts, radius=growth_radius,
                                     return_distance=False)
 
+        # Initializing list of possible new points and filtering them by
+        # their shortest path distance. This criteria aims to select only
+        # points that are closer to base than current points (pts).
         id1 = []
         for i in idx:
             id1.append(i[1:][gdist[i[1:]] <= gdist[i[0]]])
-
         id1 = np.unique([j for i in id1 for j in i])
 
+        # Stacking new points to 'gp' and getting list of points that remain
+        # to be processed (pts).
         pts = get_diff(gp, gnodes[id1])
         gp = np.vstack((gp, pts))
 
+        # Calculating step difference.
         e = gp.shape[0] - npw
         npw = gp.shape[0]
 
@@ -129,39 +178,35 @@ def path_clustering(arr, knn, slice_length, cluster_threshold,
 def slice_nodes(arr, slice_length, cluster_threshold):
 
     """
-    Function to slice a 3D point cloud by distance from the base and generate a
-    skeleton of points.
+    Generates the skeleton points of a 3D point cloud by slicing it
+    based on the shortest path distance of every point from the base.
 
 
-    Parameters
-    ----------
-    arr: array_like
-        N-dimensional array (m x n) containing a set of parameters (n) over
-        a set of observations (m). In this case, the set of parameters are the
-        point cloud coordinates, where each row represents a point.
-    slice_length: float
-        Length of the slices of the data in 'arr'.
-    cluster_threshold: float
-        Distance threshold to be used as constraint in the slice clustering
-        step.
+    Args:
+        arr (array): N-dimensional array (m x n) containing a set of
+            parameters (n) over a set of observations (m). In this case, the
+            set of parameters are the point cloud coordinates, where each row
+            represents a point.
+        slice_length (float): Length for the slices of data in 'arr'.
+        cluster_threshold (float): Distance threshold to be used as
+            constraint in the slice clustering step.
 
-    Returns
-    -------
-    cluster_data: dict
-        Dictionary containing the skeleton nodes coordinates (keys) and the
-        substet of points from 'arr' that generated the respective skeleton
-        nodes.
-    cluster_diameter: dict
-        Dictionary containing the skeleton nodes coordinates (keys) and the
-        mean diameter of the cluster that generated the respective skeleton
-        nodes.
+    Returns:
+        cluster_data (dict): Dictionary containing the skeleton nodes
+            coordinates (keys) and the substet of points from 'arr' that
+            generated the respective skeleton nodes.
+        cluster_diameter (dict): Dictionary containing the skeleton nodes
+            coordinates (keys) and the mean diameter of the cluster that
+            generated the respective skeleton nodes.
 
     """
 
     # Calculating the shortest path distance for the input array (arr).
     # Here, the calculate_path module is called twice in order to reach
     # as many points in 'arr' as possible.
-    nodes, dist = calculate_path_mixed(arr, n_neighbors=3, return_path=False)
+    G = array_to_graph(arr, 0, 3, 100, 0.05, 0.02, 0.5)
+    nodes_ids, dist = extract_path_info(G, 0, return_path=False)
+    nodes = arr[nodes_ids]
 
     # Initializing the dictionary variables for output.
     cluster_data = dict()
@@ -200,109 +245,49 @@ def slice_nodes(arr, slice_length, cluster_threshold):
 def central_coord(arr):
 
     """
-    Function to calculate the central coordinate and the mean diameter of an
-    array of points in 3D space.
+    Calculates the central coordinates and mean diameter of an array of
+    points in 3D space.
 
-    Parameters
-    ----------
-    arr: array_like
-        N-dimensional array (m x n) containing a set of parameters (n) over
-        a set of observations (m). In this case, the set of parameters are the
-        point cloud coordinates, where each row represents a point.
+    Args:
+        arr (array): N-dimensional array (m x n) containing a set of
+            parameters (n) over a set of observations (m). In this case, the
+            set of parameters are the point cloud coordinates, where each
+            row represents a point.
 
-    Returns
-    -------
-    coord: array_like
-        Central coordinates of the points in the input array.
-    diameter: float
-        Mean diameter of the points in the input array.
+    Returns:
+        coord (array): Central coordinates of the points in the input array.
+        diameter (float): Mean diameter of the points in the input array.
 
     """
 
+    # Calculating extents of 'arr' in every dimension.
     min_ = np.min(arr, axis=0)
     max_ = np.max(arr, axis=0)
 
+    # Calculates central coordinate and mean range (diameter).
     return min_ + ((max_ - min_) / 2), np.mean(max_[:2] - min_[:2])
-
-
-#def data_clustering(point_arr, threshold):
-#
-#    """
-#    Function to cluster the array slices using hierarchical clustering.
-#
-#    Parameters
-#    ----------
-#    point_arr: array
-#        N-dimensional array (m x n) containing a set of parameters (n) over
-#        a set of observations (m). In this case, the set of parameters are the
-#        point cloud coordinates, where each row represents a point.
-#    threshold: float
-#        Distance threshold to be used as constraint in the slice clustering
-#        step.
-#
-#    Returns
-#    -------
-#    clusters: array_like
-#        Set of cluster labels for the classified array.
-#
-#    """
-#
-#    clusters = hcluster.fclusterdata(point_arr, threshold, method='single',
-#                                     criterion="distance")
-#
-#    return clusters
 
 
 def data_clustering(point_arr, threshold):
 
     """
-    Function to cluster the array slices using hierarchical clustering.
+    Clusters point_arr using hierarchical clustering.
 
-    Parameters
-    ----------
-    point_arr: array
-        N-dimensional array (m x n) containing a set of parameters (n) over
-        a set of observations (m). In this case, the set of parameters are the
-        point cloud coordinates, where each row represents a point.
-    threshold: float
-        Distance threshold to be used as constraint in the slice clustering
-        step.
+    Args:
+        point_arr (array): N-dimensional array (m x n) containing a set of
+            parameters (n) over a set of observations (m). In this case, the
+            set of parameters are the point cloud coordinates, where each row
+            represents a point.
+        threshold (float): Distance threshold to be used as constraint in the
+            slice clustering step.
 
-    Returns
-    -------
-    clusters: array_like
-        Set of cluster labels for the classified array.
+    Returns:
+        clusters.labels_ (array): Set of cluster labels for the classified
+            array.
 
     """
-
-#    clusters = hcluster.fclusterdata(point_arr, threshold, method='single',
-#                                     criterion="distance")
 
     clusterer = hdbscan.HDBSCAN()
-    clusterer.fit(point_arr)   
+    clusterer.fit(point_arr)
 
     return clusterer.labels_
-
-
-def entries_to_remove(entries, d):
-
-    """
-    Function to remove selected entries (key and respective values) from
-    a given dict.
-    Based on a reply from the user mattbornski at stackoverflow.
-
-    Parameters
-    ----------
-    entries: array_like
-        Set of entried to be removed.
-    d: dict
-        Dictionary to applu the entried removal.
-
-    Reference
-    ---------
-    ..  [1] mattbornski, 2012. http://stackoverflow.com/questions/8995611/\
-removing-multiple-keys-from-a-dictionary-safely
-    """
-
-    for k in entries:
-        d.pop(k, None)

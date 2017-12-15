@@ -1,78 +1,46 @@
-# -*- coding: utf-8 -*-
-"""
-Module to manage the classification filtering.
+# Copyright (c) 2017, Matheus Boni Vicari, TLSeparation Project
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+#     1. Redistributions of source code must retain the above copyright notice,
+#        this list of conditions and the following disclaimer.
+#
+#     2. Redistributions in binary form must reproduce the above copyright
+#        notice, this list of conditions and the following disclaimer in the
+#        documentation and/or other materials provided with the distribution.
+#
+#     3. Neither the name of the Raysect Project nor the names of its
+#        contributors may be used to endorse or promote products derived from
+#        this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
 
-@author: Matheus Boni Vicari (matheus.boni.vicari@gmail.com)
-"""
+__author__ = "Matheus Boni Vicari"
+__copyright__ = "Copyright 2017, TLSeparation Project"
+__credits__ = ["Matheus Boni Vicari"]
+__license__ = "GPL3"
+__version__ = "1.2.1.1"
+__maintainer__ = "Matheus Boni Vicari"
+__email__ = "matheus.boni.vicari@gmail.com"
+__status__ = "Development"
 
 import numpy as np
-import pandas as pd
-from point_compare import get_diff
-from knnsearch import set_nbrs_knn
-from knnsearch import set_nbrs_rad
-from shortpath_nn import calculate_path_mixed_nn
+from knnsearch import (set_nbrs_knn, set_nbrs_rad)
+from data_utils import (get_diff, remove_duplicates)
+from shortpath import (array_to_graph, extract_path_info)
 from sklearn.neighbors import NearestNeighbors
-
-
-def dist_majority_knn(arr_1, arr_2, knn):
-
-    """
-    Function to apply majority filter on two arrays.
-
-    Parameters
-    ----------
-    arr_1: array
-        n-dimensional array of points to filter.
-    arr_2: array
-        n-dimensional array of points to filter.
-    knn: int
-        Number neighbors to select the subset of points to apply the
-        majority criteria.
-
-    Returns
-    -------
-    c_maj_1: array
-        Filtered n-dimensional array of the same class as the input 'arr_1'.
-    c_maj_2: array
-        Filtered n-dimensional array of the same class as the input 'arr_2'.
-
-    """
-    # Stacking the arrays from both classes to generate a combined array.
-    arr = np.vstack((arr_1, arr_2))
-
-    # Generating the indices for the local subsets of points around all points
-    # in the combined array.
-    dist, indices = set_nbrs_knn(arr, arr, knn)
-
-    # Generating the class arrays from both classified arrays and combining
-    # them into a single classes array (classes).
-    class_1 = np.full(arr_1.shape[0], 1, dtype=np.int)
-    class_2 = np.full(arr_2.shape[0], 2, dtype=np.int)
-    classes = np.hstack((class_1, class_2)).T
-
-    # Allocating output variable.
-    c_maj = np.zeros(classes.shape)
-
-    # Selecting subset of classes based on the neighborhood expressed by
-    # indices.
-    class_ = classes[indices]
-
-    # Looping over all points in indices.
-    for i in range(len(indices)):
-
-        # Obtaining classe from indices i.
-        c = class_[i, :]
-        # Caculating accummulated distance for each class.
-        d1 = np.sum(dist[i][c == 1])
-        d2 = np.sum(dist[i][c == 2])
-        # Checking which class has the highest distance and assigning it
-        # to current index in c_maj.
-        if d1 >= d2:
-            c_maj[i] = 1
-        elif d1 < d2:
-            c_maj[i] = 2
-
-    return arr[c_maj == 1], arr[c_maj == 2]
 
 
 def continuity_filter(wood, leaf, rad=0.05, n_samples=[]):
@@ -94,9 +62,6 @@ def continuity_filter(wood, leaf, rad=0.05, n_samples=[]):
         wood point cloud.
     rad: float
         Radius to search for neighboring points in the iterative process.
-    n_samples:
-        Number of samples to calculate the shortest path procedure and the
-        upscale to the whole point cloud (wood + leaf).
 
     Returns
     -------
@@ -114,21 +79,9 @@ def continuity_filter(wood, leaf, rad=0.05, n_samples=[]):
     # Obtaining wood point cloud indices.
     wood_id = np.arange(wood.shape[0])
 
-    # Checking the number of samples and if not declared, calculate a
-    # reasonable number (one third of total points).
-    if len(n_samples) < 1:
-        n_samples = np.int(arr.shape[0] / 3)
-
-    # Selecting n_samples random indices for sampling arr.
-    s = np.random.choice(np.arange(arr.shape[0]), n_samples,
-                         replace=False)
-    # Get sample array.
-    arr_sample = arr[s]
-
     # Calculating shortest path graph over sampled array.
-#    nodes, dist, path = calculate_path_mixed_nn(arr_sample, n_neighbors=3)
-    nodes, nodes_ids, dist = calculate_path_mixed_nn(arr_sample, n_neighbors=3,
-                                                     return_path=False)
+    G = array_to_graph(arr, 0, 3, 100, 0.05, 0.02, 0.5)
+    _, dist = extract_path_info(G, 0, return_path=False)
 
     # Generating nearest neighbors search for the entire point cloud (arr).
     nbrs = NearestNeighbors(algorithm='kd_tree', leaf_size=10,
@@ -136,9 +89,6 @@ def continuity_filter(wood, leaf, rad=0.05, n_samples=[]):
 
     # Converting dist variable to array, as it is originaly a list.
     dist = np.asarray(dist)
-
-    # Upscaling dist to entire point cloud (arr).
-    dist = apply_nn_value(nodes, arr, dist)
 
     # Selecting points and accummulated distance for all wood points in arr.
     gp = arr[wood_id]
@@ -201,84 +151,63 @@ def continuity_filter(wood, leaf, rad=0.05, n_samples=[]):
     return wood, not_wood
 
 
-def remove_duplicates(arr):
+def array_majority(arr_1, arr_2, **kwargs):
 
     """
-    Function to remove duplicated rows from an array.
+    Applies majority filter on two arrays.
 
-    Parameters
-    ----------
-    arr: array
-        N-dimensional array (m x n) containing a set of parameters (n) over a
-        set of observations (m).
+    Args:
+        arr_1 (array): n-dimensional array of points to filter.
+        arr_2 (array): n-dimensional array of points to filter.
+        **kwargs: knn, rad.
+        knn (int or float): Number neighbors to select around each point in
+            arr in order to apply the majority criteria.
+        rad (int or float): Search radius arount each point in arr to select
+            neighbors in order to apply the majority criteria.
 
-    Returns
-    -------
-    unique: array
-        N-dimensional array (m* x n) containing a set of unique parameters (n)
-        over a set of unique observations (m*).
+    Returns:
+        c_maj_1 (array): Filtered n-dimensional array of the same class as the
+            input 'arr_1'.
+        c_maj_2 (array): Filtered n-dimensional array of the same class as the
+            input 'arr_2'.
 
-    """
-
-    # Setting the pandas.DataFrame from the array (arr) data.
-    df = pd.DataFrame({'x': arr[:, 0], 'y': arr[:, 1], 'z': arr[:, 2]})
-
-    # Using the drop_duplicates function to remove the duplicate points from
-    # df.
-    unique = df.drop_duplicates(['x', 'y', 'z'])
-
-    return np.asarray(unique)
-
-
-def apply_nn_value(base, arr, attr):
-
-    """
-    Fundtion to upscale a set of attributes from a base array to another
-    denser array.
-
-    Parameters
-    ----------
-    base: array
-        Base array to which the attributes to upscale were originaly matched.
-    arr: array
-        Target array to which the attributes will be upscaled.
-    attr: array
-        Attributes to upscale.
-
-    Returns
-    -------
-    new_attr: array
-        Upscales attributes.
+    Raises:
+        AssertionError: Raised if neither 'knn' or 'rad' arguments are passed
+            with valid values (int or float).
 
     """
 
-    nbrs = NearestNeighbors(n_neighbors=1, algorithm='kd_tree',
-                            leaf_size=10, n_jobs=-1).fit(base)
-    idx = nbrs.kneighbors(arr, return_distance=False)
+    # Asserting input arguments are valid.
+    assert ('knn' in kwargs.keys()) or ('rad' in kwargs.keys()), 'Please\
+ input a value for either "knn" or "rad".'
 
-    newattr = attr[idx]
+    if 'knn' in kwargs.keys():
+        assert (type(kwargs['knn']) == int) or (type(kwargs['knn']) ==
+                                                float), \
+            '"knn" variable must be of type int or float.'
+    elif 'rad' in kwargs.keys():
+        assert (type(kwargs['rad']) == int) or (type(kwargs['rad']) ==
+                                                float), \
+            '"rad" variable must be of type int or float.'
 
-    return np.reshape(newattr, newattr.shape[0])
+    # Stacking the arrays from both classes to generate a combined array.
+    arr = np.vstack((arr_1, arr_2))
 
+    # Generating the indices for the local subsets of points around all points
+    # in the combined array. Function used is based upon the argument passed.
+    if 'knn' in kwargs.keys():
+        indices = set_nbrs_knn(arr, arr, kwargs['knn'], return_dist=False)
+    elif 'rad' in kwargs.keys():
+        indices = set_nbrs_rad(arr, arr, kwargs['rad'], return_dist=False)
 
-def majority(classes, indices):
+    # Making sure indices has type int.
+    indices = indices.astype(int)
 
-    """
-    Function to apply a majority filter on a set of classes.
-
-    Parameters
-    ----------
-    classes: array_like
-        1D set of classes labels to apply the filter.
-    indices:
-        Nearest neihbors indices for each entry in classes.
-
-    Returns
-    -------
-    c_maj: array_like
-        1D set of filtered classes labels.
-
-    """
+    # Generating the class arrays from both classified arrays and combining
+    # them into a single classes array (classes).
+    class_1 = np.full(arr_1.shape[0], 1, dtype=np.int)
+    class_2 = np.full(arr_2.shape[0], 2, dtype=np.int)
+    classes = np.hstack((class_1, class_2)).T
 
     # Allocating output variable.
     c_maj = np.zeros(classes.shape)
@@ -287,47 +216,86 @@ def majority(classes, indices):
     # indices.
     class_ = classes[indices]
 
-    # Looping over the target points to filter.
+    # Looping over all points in indices.
     for i in range(len(indices)):
 
         # Counting the number of occurrences of each value in the ith instance
         # of class_.
-        count = np.bincount(class_[i, :])
+        unique, count = np.unique(class_[i, :], return_counts=True)
         # Appending the majority class into the output variable.
-        c_maj[i] = count.argmax()
+        c_maj[i] = unique[np.argmax(count)]
 
-    return c_maj
+    return arr[c_maj == 1], arr[c_maj == 2]
 
 
-def class_filter(arr_1, arr_2, knn, target):
-
-    """
-    Function to apply a majority filter on a set of classes, while focusing on
-    a class.
-
-    Parameters
-    ----------
-    classes: array_like
-        1D set of classes labels to apply the filter.
-    target: scalar or array_like
-        Set of classes labels to focus the filter on.
-    indices:
-        Nearest neihbors indices for each entry in classes.
-
-    Returns
-    -------
-    c_maj: array_like
-        1D set of filtered classes labels.
+def class_filter(arr_1, arr_2, target, **kwargs):
 
     """
+    Function to apply class filter on an array based on the combination of
+    classed from both arrays (arr_1 and arr_2). Which array gets filtered
+    is defined by ''target''.
 
+    Args:
+        arr_1 (array): n-dimensional array of points to filter.
+        arr_2 (array): n-dimensional array of points to filter.
+        target (int or float): number of the input array to filter. Valid
+            values are 0 or 1.
+        **kwargs: knn, rad.
+        knn (int or float): Number neighbors to select around each point in
+            arr in order to apply the majority criteria.
+        rad (int or float): Search radius arount each point in arr to select
+            neighbors in order to apply the majority criteria.
+
+    Returns:
+        c_maj_1 (array): Filtered n-dimensional array of the same class as the
+            input 'arr_1'.
+        c_maj_2 (array): Filtered n-dimensional array of the same class as the
+            input 'arr_2'.
+
+    Raises:
+        AssertionError: Raised if neither 'knn' or 'rad' arguments are passed
+            with valid values (int or float).
+        AssertionError: Raised if 'target' variable is not an int or float with
+            value 0 or 1.
+
+    """
+
+    # Asserting input arguments are valid.
+    assert ('knn' in kwargs.keys()) or ('rad' in kwargs.keys()), 'Please\
+ input a value for either "knn" or "rad".'
+
+    if 'knn' in kwargs.keys():
+        assert (type(kwargs['knn']) == int) or (type(kwargs['knn']) ==
+                                                float), \
+            '"knn" variable must be of type int or float.'
+    elif 'rad' in kwargs.keys():
+        assert (type(kwargs['rad']) == int) or (type(kwargs['rad']) ==
+                                                float), \
+            '"rad" variable must be of type int or float.'
+
+    assert (type(target) == int) or (type(target) == float), '"target"\
+ variable must be of type int or float.'
+    assert (target == 0) or (target == 1), '"target" variable must be either\
+ 0 or 1.'
+
+    # Stacking the arrays from both classes to generate a combined array.
     arr = np.vstack((arr_1, arr_2))
 
+    # Generating the class arrays from both classified arrays and combining
+    # them into a single classes array (classes).
     class_1 = np.full(arr_1.shape[0], 1, dtype=np.int)
     class_2 = np.full(arr_2.shape[0], 2, dtype=np.int)
     classes = np.hstack((class_1, class_2)).T
 
-    indices = set_nbrs_knn(arr, arr, knn, return_dist=False)
+    # Generating the indices for the local subsets of points around all points
+    # in the combined array. Function used is based upon the argument passed.
+    if 'knn' in kwargs.keys():
+        indices = set_nbrs_knn(arr, arr, kwargs['knn'], return_dist=False)
+    elif 'rad' in kwargs.keys():
+        indices = set_nbrs_rad(arr, arr, kwargs['rad'], return_dist=False)
+
+    # Making sure indices has type int.
+    indices = indices.astype(int)
 
     # Allocating output variable.
     c_maj = classes.copy()
@@ -351,86 +319,57 @@ def class_filter(arr_1, arr_2, knn, target):
     return arr[c_maj == 1], arr[c_maj == 2]
 
 
-def class_filter_rad(arr_1, arr_2, rad, target):
+def dist_majority(arr_1, arr_2, **kwargs):
 
     """
-    Function to apply a majority filter on a set of classes, while focusing on
-    a class.
+    Applies majority filter on two arrays.
 
-    Parameters
-    ----------
-    classes: array_like
-        1D set of classes labels to apply the filter.
-    target: scalar or array_like
-        Set of classes labels to focus the filter on.
-    indices:
-        Nearest neihbors indices for each entry in classes.
+    Args:
+        arr_1 (array): n-dimensional array of points to filter.
+        arr_2 (array): n-dimensional array of points to filter.
+        **kwargs: knn, rad.
+        knn (int or float): Number neighbors to select around each point in
+            arr in order to apply the majority criteria.
+        rad (int or float): Search radius arount each point in arr to select
+            neighbors in order to apply the majority criteria.
 
-    Returns
-    -------
-    c_maj: array_like
-        1D set of filtered classes labels.
+    Returns:
+        c_maj_1 (array): Filtered n-dimensional array of the same class as the
+            input 'arr_1'.
+        c_maj_2 (array): Filtered n-dimensional array of the same class as the
+            input 'arr_2'.
 
-    """
-
-    arr = np.vstack((arr_1, arr_2))
-
-    class_1 = np.full(arr_1.shape[0], 1, dtype=np.int)
-    class_2 = np.full(arr_2.shape[0], 2, dtype=np.int)
-    classes = np.hstack((class_1, class_2)).T
-
-    indices = set_nbrs_rad(arr, arr, rad, return_dist=False)
-
-    # Allocating output variable.
-    c_maj = classes.copy()
-
-    # Checking for the target class.
-    target_idx = np.where(classes == np.array(target).any())[0]
-
-    # Looping over the target points to filter.
-    for i in target_idx:
-
-        class_ = classes[indices[i]]
-        # Counting the number of occurrences of each value in the ith instance
-        # of class_.
-        count = np.bincount(class_)
-        c_maj[i] = count.argmax()
-
-        # Appending the majority class into the output variable.
-        c_maj[i] = count.argmax()
-
-    return arr[c_maj == 1], arr[c_maj == 2]
-
-
-def array_majority_rad(arr_1, arr_2, rad):
+    Raises:
+        AssertionError: Raised if neither 'knn' or 'rad' arguments are passed
+            with valid values (int or float).
 
     """
-    Function to apply majority filter on two arrays.
 
-    Parameters
-    ----------
-    arr_1: array
-        n-dimensional array of points to filter.
-    arr_2: array
-        n-dimensional array of points to filter.
-    knn: int
-        Number neighbors to select the subset of points to apply the
-        majority criteria.
+    # Asserting input arguments are valid.
+    assert ('knn' in kwargs.keys()) or ('rad' in kwargs.keys()), 'Please\
+ input a value for either "knn" or "rad".'
 
-    Returns
-    -------
-    c_maj_1: array
-        Filtered n-dimensional array of the same class as the input 'arr_1'.
-    c_maj_2: array
-        Filtered n-dimensional array of the same class as the input 'arr_2'.
+    if 'knn' in kwargs.keys():
+        assert (type(kwargs['knn']) == int) or (type(kwargs['knn']) ==
+                                                float), \
+            '"knn" variable must be of type int or float.'
+    elif 'rad' in kwargs.keys():
+        assert (type(kwargs['rad']) == int) or (type(kwargs['rad']) ==
+                                                float), \
+            '"rad" variable must be of type int or float.'
 
-    """
     # Stacking the arrays from both classes to generate a combined array.
     arr = np.vstack((arr_1, arr_2))
 
     # Generating the indices for the local subsets of points around all points
-    # in the combined array.
-    indices = set_nbrs_rad(arr, arr, rad, return_dist=False)
+    # in the combined array. Function used is based upon the argument passed.
+    if 'knn' in kwargs.keys():
+        dist, indices = set_nbrs_knn(arr, arr, kwargs['knn'])
+    elif 'rad' in kwargs.keys():
+        dist, indices = set_nbrs_rad(arr, arr, kwargs['rad'])
+
+    # Making sure indices has type int.
+    indices = indices.astype(int)
 
     # Generating the class arrays from both classified arrays and combining
     # them into a single classes array (classes).
@@ -448,89 +387,16 @@ def array_majority_rad(arr_1, arr_2, rad):
     # Looping over all points in indices.
     for i in range(len(indices)):
 
-        # Counting the number of occurrences of each value in the ith instance
-        # of class_.
-        unique, count = np.unique(class_[i, :], return_counts=True)
-        # Appending the majority class into the output variable.
-        c_maj[i] = unique[np.argmax(count)]
+        # Obtaining classe from indices i.
+        c = class_[i, :]
+        # Caculating accummulated distance for each class.
+        d1 = np.sum(dist[i][c == 1])
+        d2 = np.sum(dist[i][c == 2])
+        # Checking which class has the highest distance and assigning it
+        # to current index in c_maj.
+        if d1 >= d2:
+            c_maj[i] = 1
+        elif d1 < d2:
+            c_maj[i] = 2
 
     return arr[c_maj == 1], arr[c_maj == 2]
-
-
-def array_majority(arr_1, arr_2, knn):
-
-    """
-    Function to apply majority filter on two arrays.
-
-    Parameters
-    ----------
-    arr_1: array
-        n-dimensional array of points to filter.
-    arr_2: array
-        n-dimensional array of points to filter.
-    knn: int
-        Number neighbors to select the subset of points to apply the
-        majority criteria.
-
-    Returns
-    -------
-    c_maj_1: array
-        Filtered n-dimensional array of the same class as the input 'arr_1'.
-    c_maj_2: array
-        Filtered n-dimensional array of the same class as the input 'arr_2'.
-
-    """
-    # Stacking the arrays from both classes to generate a combined array.
-    arr = np.vstack((arr_1, arr_2))
-
-    # Generating the indices for the local subsets of points around all points
-    # in the combined array.
-    indices = set_nbrs_knn(arr, arr, knn, return_dist=False)
-
-    # Generating the class arrays from both classified arrays and combining
-    # them into a single classes array (classes).
-    class_1 = np.full(arr_1.shape[0], 1, dtype=np.int)
-    class_2 = np.full(arr_2.shape[0], 2, dtype=np.int)
-    classes = np.hstack((class_1, class_2)).T
-
-    # Allocating output variable.
-    c_maj = np.zeros(classes.shape)
-
-    # Selecting subset of classes based on the neighborhood expressed by
-    # indices.
-    class_ = classes[indices]
-
-    # Looping over all points in indices.
-    for i in range(len(indices)):
-
-        # Counting the number of occurrences of each value in the ith instance
-        # of class_.
-        unique, count = np.unique(class_[i, :], return_counts=True)
-        # Appending the majority class into the output variable.
-        c_maj[i] = unique[np.argmax(count)]
-
-    return arr[c_maj == 1], arr[c_maj == 2]
-
-
-def entries_to_remove(entries, d):
-
-    """
-    Function to remove selected entries (key and respective values) from
-    a given dict.
-    Based on a reply from the user mattbornski at stackoverflow.
-
-    Parameters
-    ----------
-    entries: array_like
-        Set of entried to be removed.
-    d: dict
-        Dictionary to applu the entried removal.
-
-    Reference
-    ---------
-    ..  [1] mattbornski, 2012. http://stackoverflow.com/questions/8995611/\
-removing-multiple-keys-from-a-dictionary-safely
-    """
-
-    for k in entries:
-        d.pop(k, None)
