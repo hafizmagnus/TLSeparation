@@ -1,0 +1,443 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>tlseparation.classification.point_features &mdash; TLSeparation b documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+    <link rel="top" title="TLSeparation b documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> TLSeparation
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.2.1.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Table of Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../source/tlseparation.html">1. tlseparation package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">2. CHANGELOG</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">TLSeparation</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+        
+      <li>tlseparation.classification.point_features</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for tlseparation.classification.point_features</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Module to manage the calculation of the pointwise geometric features</span>
+<span class="sd">for a 3D point cloud.</span>
+
+<span class="sd">@author: Matheus Boni Vicari (matheus.boni.vicari@gmail.com)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+
+<div class="viewcode-block" id="geodescriptors"><a class="viewcode-back" href="../../../source/tlseparation.classification.html#tlseparation.classification.point_features.geodescriptors">[docs]</a><span class="k">def</span> <span class="nf">geodescriptors</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">nbr_idx</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to calculate the geometric descriptors: salient features and</span>
+<span class="sd">    tensor features.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    arr: array_like</span>
+<span class="sd">        Three-dimensional (m x n) array of a point cloud, where the coordinates</span>
+<span class="sd">        are represented in the columns (n) and the points are represented in</span>
+<span class="sd">        the rows (m).</span>
+<span class="sd">    nbr_idx: array_like</span>
+<span class="sd">        N-dimensional array of indices from a nearest neighbors search of the</span>
+<span class="sd">        point cloud in &#39;arr&#39;, where the rows (m) represents the points in &#39;arr&#39;</span>
+<span class="sd">        and the columns represents the indices of the nearest neighbors from</span>
+<span class="sd">        &#39;arr&#39;.</span>
+<span class="sd">    norm: boolean</span>
+<span class="sd">        Option to normalize the calculated salient features. Default is &#39;True&#39;.</span>
+<span class="sd">        Note that the tensor features are never normalized.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    features: array_like</span>
+<span class="sd">        N-dimensional array (m x 6) of the calculated geometric descriptors.</span>
+<span class="sd">        Where the rows (m) represent the points from &#39;arr&#39; and the columns</span>
+<span class="sd">        represents the features.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Calculating the salient features.</span>
+    <span class="n">features</span> <span class="o">=</span> <span class="n">fixed_neighbors</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">nbr_idx</span><span class="p">)</span>
+
+    <span class="c1"># Replacing the &#39;nan&#39; values for 0.</span>
+    <span class="n">features</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">features</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">return</span> <span class="n">features</span></div>
+
+
+<div class="viewcode-block" id="fixed_neighbors"><a class="viewcode-back" href="../../../source/tlseparation.classification.html#tlseparation.classification.point_features.fixed_neighbors">[docs]</a><span class="k">def</span> <span class="nf">fixed_neighbors</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">nbr_idx</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to calculate the salient features using a fixed number of</span>
+<span class="sd">    neighbors indices to select the subset of points around each point</span>
+<span class="sd">    in the input 3D cloud.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    arr: array_like</span>
+<span class="sd">        Three-dimensional (m x n) array of a point cloud, where the coordinates</span>
+<span class="sd">        are represented in the columns (n) and the points are represented in</span>
+<span class="sd">        the rows (m).</span>
+<span class="sd">    nbr_idx: array_like</span>
+<span class="sd">        N-dimensional array of indices from a nearest neighbors search of the</span>
+<span class="sd">        point cloud in &#39;arr&#39;, where the rows (m) represents the points in &#39;arr&#39;</span>
+<span class="sd">        and the columns represents the indices of the nearest neighbors from</span>
+<span class="sd">        &#39;arr&#39;.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    salient_features: array_like</span>
+<span class="sd">        N-dimensional array (m x 3) of the calculated salient features.</span>
+<span class="sd">        Where the rows (m) represent the points from &#39;arr&#39; and the columns</span>
+<span class="sd">        represents the features.</span>
+<span class="sd">    tensor_features: array_like</span>
+<span class="sd">        N-dimensional array (m x 3) of the calculated tensor features.</span>
+<span class="sd">        Where the rows (m) represent the points from &#39;arr&#39; and the columns</span>
+<span class="sd">        represents the features.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Calculating the eigenvalues.</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">eigen</span><span class="p">(</span><span class="n">arr</span><span class="p">[</span><span class="n">nbr_idx</span><span class="p">])</span>
+
+    <span class="c1"># Calculating the ratio of the eigenvalues.</span>
+    <span class="n">ratio</span> <span class="o">=</span> <span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">T</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">T</span>
+
+    <span class="c1"># Calculating the salient features and tensor features from the</span>
+    <span class="c1"># eigenvalues ratio.</span>
+    <span class="n">fa</span> <span class="o">=</span> <span class="n">calc_feature</span><span class="p">(</span><span class="n">ratio</span><span class="p">)</span>
+    <span class="n">ta</span> <span class="o">=</span> <span class="n">calc_tensor</span><span class="p">(</span><span class="n">ratio</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">fa</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">ta</span><span class="p">)))</span><span class="o">.</span><span class="n">T</span></div>
+
+
+<div class="viewcode-block" id="eigen"><a class="viewcode-back" href="../../../source/tlseparation.classification.html#tlseparation.classification.point_features.eigen">[docs]</a><span class="k">def</span> <span class="nf">eigen</span><span class="p">(</span><span class="n">arr_stack</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to calculate the eigenvalues of a stack of arrays.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    arr_stack: array_like</span>
+<span class="sd">        N-dimensional array (l x m x n) containing a stack of data, where the</span>
+<span class="sd">        rows (m) represents the points coordinates, the columns (n) represents</span>
+<span class="sd">        the axis coordinates and the layer (l) represents the stacks of points.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    evals: array_like</span>
+<span class="sd">        N-dimensional array (l x n) of eigenvalues calculated from &#39;arr_stack&#39;.</span>
+<span class="sd">        The rows (l) represents the stack layers of points in &#39;arr_stack&#39; and</span>
+<span class="sd">        the columns (n) represent the parameters in &#39;arr_stack&#39;.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Calculating the covariance of the stack of arrays.</span>
+    <span class="n">cov</span> <span class="o">=</span> <span class="n">vectorized_app</span><span class="p">(</span><span class="n">arr_stack</span><span class="p">)</span>
+
+    <span class="c1"># Calculating the eigenvalues using Singular Value Decomposition (svd).</span>
+    <span class="n">evals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">cov</span><span class="p">,</span> <span class="n">compute_uv</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">evals</span></div>
+
+
+<div class="viewcode-block" id="calc_feature"><a class="viewcode-back" href="../../../source/tlseparation.classification.html#tlseparation.classification.point_features.calc_feature">[docs]</a><span class="k">def</span> <span class="nf">calc_feature</span><span class="p">(</span><span class="n">e</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to calculate the salient features using a set of eigenvalues,</span>
+<span class="sd">    based on Ma et al., 2015.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    e: array_like</span>
+<span class="sd">        N-dimensional array (m x 3) containing sets of 3 eigenvalues per row</span>
+<span class="sd">        (m).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    features: array_like</span>
+<span class="sd">        N-dimensional array (m x 3) containing the calculated salient features</span>
+<span class="sd">        from &#39;e&#39;.</span>
+
+<span class="sd">    Reference</span>
+<span class="sd">    ---------</span>
+<span class="sd">    ..  [1] Ma et al., 2015. Improved Salient Feature-Based Approach for</span>
+<span class="sd">            Automatically Separating Photosynthetic and Nonphotosynthetic</span>
+<span class="sd">            Components Within Terrestrial Lidar Point Cloud Data of Forest</span>
+<span class="sd">            Canopies.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">([</span><span class="n">e</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">e</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">e</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">e</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">e</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]])</span></div>
+
+
+<div class="viewcode-block" id="calc_tensor"><a class="viewcode-back" href="../../../source/tlseparation.classification.html#tlseparation.classification.point_features.calc_tensor">[docs]</a><span class="k">def</span> <span class="nf">calc_tensor</span><span class="p">(</span><span class="n">e</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to calculate the tensor features using a set of eigenvalues,</span>
+<span class="sd">    based on Wang et al., 2015.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    e: array_like</span>
+<span class="sd">        N-dimensional array (m x 3) containing sets of 3 eigenvalues per row</span>
+<span class="sd">        (m).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    features: array_like</span>
+<span class="sd">        N-dimensional array (m x 3) containing the calculated tensor features</span>
+<span class="sd">        from &#39;e&#39;.</span>
+
+<span class="sd">    Reference</span>
+<span class="sd">    ---------</span>
+<span class="sd">    ..  [1] Wang et al., 2015. A Multiscale and Hierarchical Feature Extraction</span>
+<span class="sd">            Method for Terrestrial Laser Scanning Point Cloud Classification.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">t1</span> <span class="o">=</span> <span class="p">(</span><span class="n">e</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">e</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">])</span> <span class="o">/</span> <span class="n">e</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="n">t2</span> <span class="o">=</span> <span class="p">((</span><span class="n">e</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">e</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]))</span> <span class="o">+</span> <span class="p">(</span><span class="n">e</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">e</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]))</span> <span class="o">+</span>
+          <span class="p">(</span><span class="n">e</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">e</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">])))</span>
+    <span class="n">t3</span> <span class="o">=</span> <span class="p">(</span><span class="n">e</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">e</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="n">e</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">t1</span><span class="p">,</span> <span class="n">t2</span><span class="p">,</span> <span class="n">t3</span></div>
+
+
+<div class="viewcode-block" id="vectorized_app"><a class="viewcode-back" href="../../../source/tlseparation.classification.html#tlseparation.classification.point_features.vectorized_app">[docs]</a><span class="k">def</span> <span class="nf">vectorized_app</span><span class="p">(</span><span class="n">arr_stack</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to calculate the covariance of a stack of arrays. This function</span>
+<span class="sd">    uses einstein summation to make the covariance calculation more efficient.</span>
+<span class="sd">    Based on a reply from the user Divakar at stackoverflow.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    arr_stack: array_like</span>
+<span class="sd">        N-dimensional array (l x m x n) containing a stack of data, where the</span>
+<span class="sd">        rows (m) represents the points coordinates, the columns (n) represents</span>
+<span class="sd">        the axis coordinates and the layer (l) represents the stacks of points.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    cov: array_like</span>
+<span class="sd">        N-dimensional array (l x n x n) of covariance values calculated from</span>
+<span class="sd">        &#39;arr_stack&#39;. Each layer (l) contains a (n x n) covariance matrix</span>
+<span class="sd">        calculated from the layers (l) in &#39;arr_stack&#39;.</span>
+
+<span class="sd">    Reference</span>
+<span class="sd">    ---------</span>
+<span class="sd">    ..  [1] Divakar, 2016. http://stackoverflow.com/questions/35756952/\</span>
+<span class="sd">quickly-compute-eigenvectors-for-each-element-of-an-array-in-\</span>
+<span class="sd">python.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Centralizing the data around the mean.</span>
+    <span class="n">diffs</span> <span class="o">=</span> <span class="n">arr_stack</span> <span class="o">-</span> <span class="n">arr_stack</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Using the eintein summation of the centered data in regard to the array</span>
+    <span class="c1"># stack shape to return the covariance of each array in the stack.</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;ijk,ijl-&gt;ikl&#39;</span><span class="p">,</span> <span class="n">diffs</span><span class="p">,</span> <span class="n">diffs</span><span class="p">)</span><span class="o">/</span><span class="n">arr_stack</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span></div>
+</pre></div>
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, Matheus Boni Vicari.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../',
+            VERSION:'b',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

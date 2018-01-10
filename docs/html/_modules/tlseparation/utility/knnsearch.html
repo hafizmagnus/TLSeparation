@@ -1,0 +1,421 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>tlseparation.utility.knnsearch &mdash; TLSeparation b documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+    <link rel="top" title="TLSeparation b documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> TLSeparation
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.2.1.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Table of Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../source/tlseparation.html">1. tlseparation package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">2. CHANGELOG</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">TLSeparation</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+        
+      <li>tlseparation.utility.knnsearch</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for tlseparation.utility.knnsearch</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Module to manage the nearest neighbors selection.</span>
+
+<span class="sd">@author: Matheus Boni Vicari (matheus.boni.vicari@gmail.com)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">sklearn.neighbors</span> <span class="k">import</span> <span class="n">NearestNeighbors</span>
+
+
+<div class="viewcode-block" id="set_nbrs_rad"><a class="viewcode-back" href="../../../source/tlseparation.utility.html#tlseparation.utility.knnsearch.set_nbrs_rad">[docs]</a><span class="k">def</span> <span class="nf">set_nbrs_rad</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">pts</span><span class="p">,</span> <span class="n">rad</span><span class="p">,</span> <span class="n">return_dist</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to create a set of nearest neighbors indices and their respective</span>
+<span class="sd">    distances for a set of points.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    arr: array</span>
+<span class="sd">        N-dimensional array to perform the knn search on.</span>
+<span class="sd">    pts: array</span>
+<span class="sd">        N-dimensional array to search for on the knn search.</span>
+<span class="sd">    knn: int</span>
+<span class="sd">        Number of nearest neighbors to search for.</span>
+<span class="sd">    return_dist: boolean</span>
+<span class="sd">        Option to return or not the distances of each neighbor.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    indices: array</span>
+<span class="sd">        Set of neighbors indices from &#39;arr&#39; for each entry in &#39;pts&#39;.</span>
+<span class="sd">    distance: array</span>
+<span class="sd">        Distances from each neighbor to each central point in &#39;pts&#39;.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Initiating the nearest neighbors search and fitting it to the input</span>
+    <span class="c1"># array.</span>
+    <span class="n">nbrs</span> <span class="o">=</span> <span class="n">NearestNeighbors</span><span class="p">(</span><span class="n">radius</span><span class="o">=</span><span class="n">rad</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="s1">&#39;euclidean&#39;</span><span class="p">,</span>
+                            <span class="n">algorithm</span><span class="o">=</span><span class="s1">&#39;kd_tree&#39;</span><span class="p">,</span> <span class="n">leaf_size</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span>
+                            <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>
+
+    <span class="c1"># Checking if the function should return the distance as well or only the</span>
+    <span class="c1"># neighborhood indices.</span>
+    <span class="k">if</span> <span class="n">return_dist</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="c1"># Obtaining the neighborhood indices and their respective distances</span>
+        <span class="c1"># from the center point.</span>
+        <span class="n">distance</span><span class="p">,</span> <span class="n">indices</span> <span class="o">=</span> <span class="n">nbrs</span><span class="o">.</span><span class="n">radius_neighbors</span><span class="p">(</span><span class="n">pts</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">distance</span><span class="p">,</span> <span class="n">indices</span>
+
+    <span class="k">elif</span> <span class="n">return_dist</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+        <span class="c1"># Obtaining the neighborhood indices only.</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">nbrs</span><span class="o">.</span><span class="n">radius_neighbors</span><span class="p">(</span><span class="n">pts</span><span class="p">,</span> <span class="n">return_distance</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">indices</span></div>
+
+
+<div class="viewcode-block" id="set_nbrs_knn_block"><a class="viewcode-back" href="../../../source/tlseparation.utility.html#tlseparation.utility.knnsearch.set_nbrs_knn_block">[docs]</a><span class="k">def</span> <span class="nf">set_nbrs_knn_block</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">pts</span><span class="p">,</span> <span class="n">knn</span><span class="p">,</span> <span class="n">return_dist</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">block_size</span><span class="o">=</span><span class="mi">100000</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to create a set of nearest neighbors indices and their respective</span>
+<span class="sd">    distances for a set of points. This function is a variation of</span>
+<span class="sd">    set_nbrs_knn that sets a limit size for a block of points to query. This</span>
+<span class="sd">    makes it less efficient in terms of processing time, but avoids running</span>
+<span class="sd">    out of memory in cases of very dense/large arrays/queries.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    arr: array</span>
+<span class="sd">        N-dimensional array to perform the knn search on.</span>
+<span class="sd">    pts: array</span>
+<span class="sd">        N-dimensional array to search for on the knn search.</span>
+<span class="sd">    knn: int</span>
+<span class="sd">        Number of nearest neighbors to search for.</span>
+<span class="sd">    return_dist: boolean</span>
+<span class="sd">        Option to return or not the distances of each neighbor.</span>
+<span class="sd">    block_size: int</span>
+<span class="sd">        Limit of points to query. The variable &#39;pts&#39; will be subdivided in</span>
+<span class="sd">        n blocks of size block_size to perform query.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    indices: array</span>
+<span class="sd">        Set of neighbors indices from &#39;arr&#39; for each entry in &#39;pts&#39;.</span>
+<span class="sd">    distance: array</span>
+<span class="sd">        Distances from each neighbor to each central point in &#39;pts&#39;.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Initiating the nearest neighbors search and fitting it to the input</span>
+    <span class="c1"># array.</span>
+    <span class="n">nbrs</span> <span class="o">=</span> <span class="n">NearestNeighbors</span><span class="p">(</span><span class="n">n_neighbors</span><span class="o">=</span><span class="n">knn</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="s1">&#39;euclidean&#39;</span><span class="p">,</span>
+                            <span class="n">algorithm</span><span class="o">=</span><span class="s1">&#39;kd_tree&#39;</span><span class="p">,</span> <span class="n">leaf_size</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span>
+                            <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>
+
+    <span class="c1"># Creating block of ids.</span>
+    <span class="n">ids</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">pts</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">ids</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array_split</span><span class="p">(</span><span class="n">ids</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">pts</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">block_size</span><span class="p">))</span>
+
+    <span class="c1"># Initializing variables to store distance and indices.</span>
+    <span class="k">if</span> <span class="n">return_dist</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">distance</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="n">pts</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">knn</span><span class="p">])</span>
+    <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="n">pts</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">knn</span><span class="p">])</span>
+
+    <span class="c1"># Checking if the function should return the distance as well or only the</span>
+    <span class="c1"># neighborhood indices.</span>
+    <span class="k">if</span> <span class="n">return_dist</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="c1"># Obtaining the neighborhood indices and their respective distances</span>
+        <span class="c1"># from the center point by looping over blocks of ids.</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">ids</span><span class="p">:</span>
+            <span class="n">nbrs_dist</span><span class="p">,</span> <span class="n">nbrs_ids</span> <span class="o">=</span> <span class="n">nbrs</span><span class="o">.</span><span class="n">kneighbors</span><span class="p">(</span><span class="n">pts</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="n">distance</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">nbrs_dist</span>
+            <span class="n">indices</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">nbrs_ids</span>
+        <span class="k">return</span> <span class="n">distance</span><span class="p">,</span> <span class="n">indices</span>
+
+    <span class="k">elif</span> <span class="n">return_dist</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+        <span class="c1"># Obtaining the neighborhood indices only  by looping over blocks of</span>
+        <span class="c1"># ids.</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">ids</span><span class="p">:</span>
+            <span class="n">nbrs_ids</span> <span class="o">=</span> <span class="n">nbrs</span><span class="o">.</span><span class="n">kneighbors</span><span class="p">(</span><span class="n">pts</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">return_distance</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">indices</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">nbrs_ids</span>
+        <span class="k">return</span> <span class="n">indices</span></div>
+
+
+<div class="viewcode-block" id="set_nbrs_knn"><a class="viewcode-back" href="../../../source/tlseparation.utility.html#tlseparation.utility.knnsearch.set_nbrs_knn">[docs]</a><span class="k">def</span> <span class="nf">set_nbrs_knn</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">pts</span><span class="p">,</span> <span class="n">knn</span><span class="p">,</span> <span class="n">return_dist</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to create a set of nearest neighbors indices and their respective</span>
+<span class="sd">    distances for a set of points.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    arr: array</span>
+<span class="sd">        N-dimensional array to perform the knn search on.</span>
+<span class="sd">    pts: array</span>
+<span class="sd">        N-dimensional array to search for on the knn search.</span>
+<span class="sd">    knn: int</span>
+<span class="sd">        Number of nearest neighbors to search for.</span>
+<span class="sd">    return_dist: boolean</span>
+<span class="sd">        Option to return or not the distances of each neighbor.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    indices: array</span>
+<span class="sd">        Set of neighbors indices from &#39;arr&#39; for each entry in &#39;pts&#39;.</span>
+<span class="sd">    distance: array</span>
+<span class="sd">        Distances from each neighbor to each central point in &#39;pts&#39;.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Initiating the nearest neighbors search and fitting it to the input</span>
+    <span class="c1"># array.</span>
+    <span class="n">nbrs</span> <span class="o">=</span> <span class="n">NearestNeighbors</span><span class="p">(</span><span class="n">n_neighbors</span><span class="o">=</span><span class="n">knn</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="s1">&#39;euclidean&#39;</span><span class="p">,</span>
+                            <span class="n">algorithm</span><span class="o">=</span><span class="s1">&#39;kd_tree&#39;</span><span class="p">,</span> <span class="n">leaf_size</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span>
+                            <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>
+
+    <span class="c1"># Checking if the function should return the distance as well or only the</span>
+    <span class="c1"># neighborhood indices.</span>
+    <span class="k">if</span> <span class="n">return_dist</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="c1"># Obtaining the neighborhood indices and their respective distances</span>
+        <span class="c1"># from the center point.</span>
+        <span class="n">distance</span><span class="p">,</span> <span class="n">indices</span> <span class="o">=</span> <span class="n">nbrs</span><span class="o">.</span><span class="n">kneighbors</span><span class="p">(</span><span class="n">pts</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">distance</span><span class="p">,</span> <span class="n">indices</span>
+
+    <span class="k">elif</span> <span class="n">return_dist</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+        <span class="c1"># Obtaining the neighborhood indices only.</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">nbrs</span><span class="o">.</span><span class="n">kneighbors</span><span class="p">(</span><span class="n">pts</span><span class="p">,</span> <span class="n">return_distance</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">indices</span></div>
+
+
+<div class="viewcode-block" id="subset_nbrs"><a class="viewcode-back" href="../../../source/tlseparation.utility.html#tlseparation.utility.knnsearch.subset_nbrs">[docs]</a><span class="k">def</span> <span class="nf">subset_nbrs</span><span class="p">(</span><span class="n">distance</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="n">new_knn</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to perform a subseting of points from the results of a nearest</span>
+<span class="sd">    neighbors search.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    distance: array</span>
+<span class="sd">        Distances from each neighbor to each central point in &#39;pts&#39;.</span>
+<span class="sd">    indices: array</span>
+<span class="sd">        Set of neighbors indices from &#39;arr&#39; for each entry in &#39;pts&#39;.</span>
+<span class="sd">    new_knn: int</span>
+<span class="sd">        Number of neighbors to select from the initial number of neighbors.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    distance: array</span>
+<span class="sd">        Subset of distances from each neighbor &#39;indices&#39;.</span>
+<span class="sd">    indices: array</span>
+<span class="sd">        Subset of neighbors indices from &#39;indices&#39;.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Returning the subset of neighbors based on a previous nearest</span>
+    <span class="c1"># neighbors search.</span>
+    <span class="k">return</span> <span class="n">distance</span><span class="p">[:,</span> <span class="p">:</span><span class="n">new_knn</span><span class="o">+</span><span class="mi">1</span><span class="p">],</span> <span class="n">indices</span><span class="p">[:,</span> <span class="p">:</span><span class="n">new_knn</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span></div>
+</pre></div>
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, Matheus Boni Vicari.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../',
+            VERSION:'b',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

@@ -1,0 +1,459 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>tlseparation.utility.shortpath &mdash; TLSeparation b documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+    <link rel="top" title="TLSeparation b documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> TLSeparation
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.2.1.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Table of Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../source/tlseparation.html">1. tlseparation package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">2. CHANGELOG</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">TLSeparation</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+        
+      <li>tlseparation.utility.shortpath</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for tlseparation.utility.shortpath</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Module to manage the shortest path calculation on a point cloud.</span>
+
+<span class="sd">@author: Matheus Boni Vicari (matheus.boni.vicari@gmail.com)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">networkx</span> <span class="k">as</span> <span class="nn">nx</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">sklearn.neighbors</span> <span class="k">import</span> <span class="n">NearestNeighbors</span>
+<span class="kn">from</span> <span class="nn">scipy.spatial</span> <span class="k">import</span> <span class="n">Delaunay</span>
+<span class="kn">import</span> <span class="nn">itertools</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+
+<div class="viewcode-block" id="calculate_path"><a class="viewcode-back" href="../../../source/tlseparation.utility.html#tlseparation.utility.shortpath.calculate_path">[docs]</a><span class="k">def</span> <span class="nf">calculate_path</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;tin&#39;</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="o">=</span><span class="p">[],</span> <span class="n">base</span><span class="o">=</span><span class="p">[],</span>
+                   <span class="n">dist_threshold</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span> <span class="n">return_path</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to calculate the shortest path of all reachable points in an</span>
+<span class="sd">    array to a base point.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    arr: array</span>
+<span class="sd">        N-dimensional array (m x n) containing a set of parameters (n) over</span>
+<span class="sd">        a set of observations (m) to apply the shortest path on.</span>
+<span class="sd">    mode: string</span>
+<span class="sd">        Option to select the method do perform the connection between</span>
+<span class="sd">        neighboring points. The options are &#39;knn&#39;, which will use the</span>
+<span class="sd">        Nearest Neighbors Search, and &#39;tin&#39;, which will use Delaunay</span>
+<span class="sd">        Triangulation.</span>
+<span class="sd">    n_neighbors: int</span>
+<span class="sd">        Number of nearest neighbors to search for in order to connect all</span>
+<span class="sd">        entries in arr to form a graph. Valid only if using the &#39;knn&#39; option</span>
+<span class="sd">        for mode.</span>
+<span class="sd">    base: array_like</span>
+<span class="sd">        N-dimensional array to use as base point coordinates for the shortest</span>
+<span class="sd">        path calculation.</span>
+<span class="sd">    dist_threshold: float</span>
+<span class="sd">        Parameter to limit the creation of an edge longer than a distance</span>
+<span class="sd">        threshold.</span>
+<span class="sd">    return_path: boolean</span>
+<span class="sd">        Option to select if the function should return the indices of entries</span>
+<span class="sd">        from &#39;arr&#39; that are part of the shortest paths.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    nodes: array</span>
+<span class="sd">        N-dimensional array (m x n) of nodes from the shortest path containing</span>
+<span class="sd">        a set of parameters (n) over a set of observations (m).</span>
+<span class="sd">    distance: array_like</span>
+<span class="sd">        Accumulated distance from the base for each node.</span>
+<span class="sd">    Path: nested_lists</span>
+<span class="sd">        Lists of indices of entried from &#39;arr&#39; that are part of the paths for</span>
+<span class="sd">        each node.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Checking for the existance of a base point, otherwise, create it.</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">base</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">base</span> <span class="o">=</span> <span class="n">base_center</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>
+    <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">base</span><span class="p">,</span> <span class="n">arr</span><span class="p">))</span>
+
+    <span class="c1"># Checking which mode to create the graph is to be used.</span>
+    <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;knn&#39;</span><span class="p">:</span>
+        <span class="n">G</span> <span class="o">=</span> <span class="n">create_graph_1</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="p">,</span> <span class="n">dist_threshold</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;tin&#39;</span><span class="p">:</span>
+        <span class="n">G</span> <span class="o">=</span> <span class="n">create_graph_2</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">dist_threshold</span><span class="p">)</span>
+
+    <span class="c1"># Calculating the shortest path</span>
+    <span class="n">shortpath</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">single_source_dijkstra_path_length</span><span class="p">(</span><span class="n">G</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+    <span class="c1"># Obtaining the node coordinates and their respective distance from</span>
+    <span class="c1"># the base point.</span>
+    <span class="n">nodes</span> <span class="o">=</span> <span class="n">shortpath</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+    <span class="n">distance</span> <span class="o">=</span> <span class="n">shortpath</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+
+    <span class="c1"># Checking if the function should also return the paths of each node and</span>
+    <span class="c1"># if so, generating the path list and returning it.</span>
+    <span class="k">if</span> <span class="n">return_path</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">path_list</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">single_source_dijkstra_path</span><span class="p">(</span><span class="n">G</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">arr</span><span class="p">[</span><span class="n">nodes</span><span class="p">,</span> <span class="p">:],</span> <span class="n">distance</span><span class="p">,</span> <span class="n">path_list</span>
+
+    <span class="k">elif</span> <span class="n">return_path</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">arr</span><span class="p">[</span><span class="n">nodes</span><span class="p">,</span> <span class="p">:],</span> <span class="n">distance</span></div>
+
+
+<div class="viewcode-block" id="create_graph_2"><a class="viewcode-back" href="../../../source/tlseparation.utility.html#tlseparation.utility.shortpath.create_graph_2">[docs]</a><span class="k">def</span> <span class="nf">create_graph_2</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">threshold</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to create a Graph using the TIN approach.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    arr: array</span>
+<span class="sd">        N-dimensional array (m x n) containing a set of parameters (n) over</span>
+<span class="sd">        a set of observations (m) to apply the shortest path on.</span>
+<span class="sd">    threshold: float</span>
+<span class="sd">        Parameter to limit the creation of an edge longer than a distance</span>
+<span class="sd">        threshold.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    G: graph</span>
+<span class="sd">        Networkx graph containing the points in &#39;arr&#39; as nodes and the distance</span>
+<span class="sd">        between nodes as weight.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Generating the Delaunay triangulation and obtaining its vertices.</span>
+    <span class="n">tri</span> <span class="o">=</span> <span class="n">Delaunay</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>
+    <span class="n">vx</span> <span class="o">=</span> <span class="n">tri</span><span class="o">.</span><span class="n">vertices</span>
+
+    <span class="c1"># Setting the vertices combination pattern.</span>
+    <span class="n">pattern1</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
+    <span class="n">pattern2</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+
+    <span class="c1"># Allocating a temporary array to unpack the vertices.</span>
+    <span class="n">temp_vertices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="n">vx</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">2</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">)</span>
+    <span class="c1"># Initializing empty list to use as container for pairs of vertices.</span>
+    <span class="n">vertices_pairs</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="c1"># Looping over the combination of vertices pairs patterns.</span>
+    <span class="k">for</span> <span class="n">p1</span><span class="p">,</span> <span class="n">p2</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">izip</span><span class="p">(</span><span class="n">pattern1</span><span class="p">,</span> <span class="n">pattern2</span><span class="p">):</span>
+        <span class="c1"># Selecting vertices columns based on the current pattern combination.</span>
+        <span class="n">temp_vertices</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">vx</span><span class="p">[:,</span> <span class="n">p1</span><span class="p">]</span>
+        <span class="n">temp_vertices</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">vx</span><span class="p">[:,</span> <span class="n">p2</span><span class="p">]</span>
+
+        <span class="c1"># Appending to the vertices pairs list.</span>
+        <span class="n">vertices_pairs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">temp_vertices</span><span class="p">)</span>
+
+    <span class="c1"># Reshaping the vertices pairs.</span>
+    <span class="n">vertices_pairs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">vertices_pairs</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">([</span><span class="n">vx</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
+    <span class="n">vertices_pairs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">vertices_pairs</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># Creating a pandas.DataFrame from the vertices pairs.</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">vertices_pairs</span><span class="p">)</span>
+
+    <span class="c1"># Obtaining the unique set of pairs from the pandas.DataFrame.</span>
+    <span class="n">pairs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">())</span>
+
+    <span class="c1"># Calculating the distance between pairs of vertices.</span>
+    <span class="n">dist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">arr</span><span class="p">[</span><span class="n">pairs</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]]</span> <span class="o">-</span> <span class="n">arr</span><span class="p">[</span><span class="n">pairs</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># Initializing Graph.</span>
+    <span class="n">G</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">()</span>
+
+    <span class="c1"># Looping over combination of pairs and the distance between them.</span>
+    <span class="k">for</span> <span class="n">p1</span><span class="p">,</span> <span class="n">p2</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">izip</span><span class="p">(</span><span class="n">pairs</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">pairs</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">dist</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">d</span> <span class="o">&lt;=</span> <span class="n">threshold</span><span class="p">:</span>
+            <span class="c1"># If the distance between vertices is less than a given threshold,</span>
+            <span class="c1"># add edge (p1, p2) to Graph.</span>
+            <span class="n">G</span><span class="o">.</span><span class="n">add_weighted_edges_from</span><span class="p">([(</span><span class="n">p1</span><span class="p">,</span> <span class="n">p2</span><span class="p">,</span> <span class="n">d</span><span class="p">)])</span>
+
+    <span class="k">return</span> <span class="n">G</span></div>
+
+
+<div class="viewcode-block" id="create_graph_1"><a class="viewcode-back" href="../../../source/tlseparation.utility.html#tlseparation.utility.shortpath.create_graph_1">[docs]</a><span class="k">def</span> <span class="nf">create_graph_1</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="p">,</span> <span class="n">threshold</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to create a Graph using the knn search approach.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    arr: array</span>
+<span class="sd">        N-dimensional array (m x n) containing a set of parameters (n) over</span>
+<span class="sd">        a set of observations (m) to apply the shortest path on.</span>
+<span class="sd">    n_neighbors: int</span>
+<span class="sd">        Number of nearest neighbors to search for in order to connect all</span>
+<span class="sd">        entries in arr to form a graph.</span>
+<span class="sd">    threshold: float</span>
+<span class="sd">        Parameter to limit the creation of an edge longer than a distance</span>
+<span class="sd">        threshold.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    G: graph</span>
+<span class="sd">        Networkx graph containing the points in &#39;arr&#39; as nodes and the distance</span>
+<span class="sd">        between nodes as weight.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Initializing the nearest neihbors search and fitting it to the input</span>
+    <span class="c1"># array.</span>
+    <span class="n">nbrs</span> <span class="o">=</span> <span class="n">NearestNeighbors</span><span class="p">(</span><span class="n">n_neighbors</span><span class="o">=</span><span class="n">n_neighbors</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="s1">&#39;euclidean&#39;</span><span class="p">,</span>
+                            <span class="n">algorithm</span><span class="o">=</span><span class="s1">&#39;kd_tree&#39;</span><span class="p">,</span> <span class="n">leaf_size</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span>
+                            <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>
+    <span class="c1"># Obtaining the set of indices and distances from the nn search.</span>
+    <span class="n">distances</span><span class="p">,</span> <span class="n">indices</span> <span class="o">=</span> <span class="n">nbrs</span><span class="o">.</span><span class="n">kneighbors</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>
+
+    <span class="c1"># Initializing Graph.</span>
+    <span class="n">G</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">()</span>
+
+    <span class="c1"># Looping over the combination of indices and distances:</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">izip</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">distances</span><span class="p">):</span>
+        <span class="c1"># Looping over all neighbors of the current ith central point.</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">:])):</span>
+            <span class="k">if</span> <span class="n">d</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">threshold</span><span class="p">:</span>
+                <span class="c1"># If the distance between vertices is less than a given</span>
+                <span class="c1"># threshold, add edge (i[0], i[c]) to Graph.</span>
+                <span class="n">G</span><span class="o">.</span><span class="n">add_weighted_edges_from</span><span class="p">([(</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">i</span><span class="p">[</span><span class="n">c</span><span class="p">],</span> <span class="n">d</span><span class="p">[</span><span class="n">c</span><span class="p">])])</span>
+
+    <span class="k">return</span> <span class="n">G</span></div>
+
+
+<div class="viewcode-block" id="base_center"><a class="viewcode-back" href="../../../source/tlseparation.utility.html#tlseparation.utility.shortpath.base_center">[docs]</a><span class="k">def</span> <span class="nf">base_center</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">base_length</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to generate a base center coordinates from an array.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    arr: array</span>
+<span class="sd">        N-dimensional array (m x n) containing a set of parameters (n) over</span>
+<span class="sd">        a set of observations (m) to use in the creation of a base point</span>
+<span class="sd">        coordiante.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    coord: array_like</span>
+<span class="sd">        N-dimensional set of coordinates for the base point from &#39;arr&#39;.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Obtaining the lowest points in arr.</span>
+    <span class="n">base_height</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">arr</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">])</span> <span class="o">+</span> <span class="n">base_length</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="n">arr</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">base_height</span>
+    <span class="n">base_pts</span> <span class="o">=</span> <span class="n">arr</span><span class="p">[</span><span class="n">mask</span><span class="p">,</span> <span class="p">:]</span>
+
+    <span class="c1"># Calculating the base coordinates.</span>
+    <span class="n">base_x</span> <span class="o">=</span> <span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">base_pts</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">base_pts</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]))</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">base_y</span> <span class="o">=</span> <span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">base_pts</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">])</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">base_pts</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]))</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">base_z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">base_pts</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">base_x</span><span class="p">,</span> <span class="n">base_y</span><span class="p">,</span> <span class="n">base_z</span><span class="p">],</span> <span class="n">ndmin</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span></div>
+</pre></div>
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, Matheus Boni Vicari.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../',
+            VERSION:'b',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

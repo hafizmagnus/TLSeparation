@@ -1,0 +1,532 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>tlseparation.utility.continuous_clustering &mdash; TLSeparation b documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+    <link rel="top" title="TLSeparation b documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> TLSeparation
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.2.1.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Table of Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../source/tlseparation.html">1. tlseparation package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">2. CHANGELOG</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">TLSeparation</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+        
+      <li>tlseparation.utility.continuous_clustering</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for tlseparation.utility.continuous_clustering</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">@author: Matheus Boni Vicari (matheus.boni.vicari@gmail.com)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">shortpath</span> <span class="k">import</span> <span class="n">calculate_path</span>
+<span class="kn">from</span> <span class="nn">sklearn.neighbors</span> <span class="k">import</span> <span class="n">NearestNeighbors</span>
+<span class="kn">import</span> <span class="nn">scipy.cluster.hierarchy</span> <span class="k">as</span> <span class="nn">hcluster</span>
+<span class="kn">from</span> <span class="nn">point_compare</span> <span class="k">import</span> <span class="n">get_diff</span>
+<span class="kn">from</span> <span class="nn">shortpath_mod</span> <span class="k">import</span> <span class="n">calculate_path_mixed</span>
+<span class="kn">import</span> <span class="nn">hdbscan</span>
+
+
+<div class="viewcode-block" id="path_clustering"><a class="viewcode-back" href="../../../source/tlseparation.utility.html#tlseparation.utility.continuous_clustering.path_clustering">[docs]</a><span class="k">def</span> <span class="nf">path_clustering</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">knn</span><span class="p">,</span> <span class="n">slice_length</span><span class="p">,</span> <span class="n">cluster_threshold</span><span class="p">,</span>
+                    <span class="n">freq_threshold</span><span class="o">=</span><span class="mf">0.6</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to generate the path clustering of a point cloud with a defined</span>
+<span class="sd">    root point.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    arr: array_like</span>
+<span class="sd">        N-dimensional array (m x n) containing a set of parameters (n) over</span>
+<span class="sd">        a set of observations (m). In this case, the set of parameters are the</span>
+<span class="sd">        point cloud coordinates, where each row represents a point.</span>
+<span class="sd">    knn: int</span>
+<span class="sd">        Number of nearest neighbors to use in the reconstruction of point cloud</span>
+<span class="sd">        around the generated path nodes. A high value may lead to unnecessary</span>
+<span class="sd">        duplication of steps. A low value may lead to gaps in the reconstructed</span>
+<span class="sd">        point cloud.</span>
+<span class="sd">    slice_length: float</span>
+<span class="sd">        Length of the slices of the data in &#39;arr&#39;.</span>
+<span class="sd">    cluster_threshold: float</span>
+<span class="sd">        Distance threshold to be used as constraint in the slice clustering</span>
+<span class="sd">        step.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    wood: array</span>
+<span class="sd">        N-dimensional array (w x n) containing the (w) points classified as</span>
+<span class="sd">        wood from the path reconstruction. The columns (n) represents the</span>
+<span class="sd">        3D coordinates of each point.</span>
+<span class="sd">    leaf: array</span>
+<span class="sd">        N-dimensional array (l x n) containing the (l) points not classified as</span>
+<span class="sd">        wood and, therefore, classified as leaf. The columns (n) represents the</span>
+<span class="sd">        3D coordinates of each point.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Slicing and clustering the data to generate the center points of</span>
+    <span class="c1"># every cluster. Return also the cluster data and the diameter of</span>
+    <span class="c1"># each cluster.</span>
+    <span class="n">nodes_data</span><span class="p">,</span> <span class="n">nodes_diameter</span><span class="p">,</span> <span class="n">nodes</span><span class="p">,</span> <span class="n">dist</span>  <span class="o">=</span> <span class="n">slice_nodes</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">slice_length</span><span class="p">,</span>
+                                                            <span class="n">cluster_threshold</span><span class="p">)</span>
+
+    <span class="c1"># Obtaining the central nodes coordinates (tree skeleton points).</span>
+    <span class="n">central_nodes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">nodes_data</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+
+    <span class="c1"># Calculating the shortest path over the central nodes.</span>
+    <span class="n">gnodes</span><span class="p">,</span> <span class="n">gdist</span><span class="p">,</span> <span class="n">gpath</span> <span class="o">=</span> <span class="n">calculate_path</span><span class="p">(</span><span class="n">central_nodes</span><span class="p">,</span> <span class="s1">&#39;knn&#39;</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+    <span class="n">gdist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">gdist</span><span class="p">)</span>
+
+    <span class="c1"># Extracting all the nodes in the shortest path.</span>
+    <span class="n">gpath</span> <span class="o">=</span> <span class="n">gpath</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+    <span class="n">gpath_nodes</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">gpath</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">j</span><span class="p">]</span>
+
+    <span class="c1"># Obtaining all unique values in the central nodes path and their</span>
+    <span class="c1"># respective frequency.</span>
+    <span class="n">gpath_nodes</span><span class="p">,</span> <span class="n">freq</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">gpath_nodes</span><span class="p">,</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Log transforming the frequency values.</span>
+    <span class="n">freq_log</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">freq</span><span class="p">)</span>
+
+    <span class="c1"># Filtering the central nodes based on the frequency of paths</span>
+    <span class="c1"># that contains each node.</span>
+    <span class="n">gp</span> <span class="o">=</span> <span class="n">gnodes</span><span class="p">[</span><span class="n">freq_log</span> <span class="o">&gt;=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">freq_log</span><span class="p">)</span> <span class="o">*</span> <span class="n">freq_threshold</span><span class="p">)]</span>
+<span class="c1">#    gpdist = gdist[freq_log &gt;= (np.max(freq_log) * freq_threshold)]</span>
+
+    <span class="c1"># Obtaining list of close nodes that are not yet in &#39;gp&#39; and stacking them</span>
+    <span class="c1"># to &#39;gp&#39;. This step aims to fill the gaps between nodes from &#39;gp&#39;.</span>
+    <span class="n">nbrs</span> <span class="o">=</span> <span class="n">NearestNeighbors</span><span class="p">(</span><span class="n">leaf_size</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">nbrs</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">gnodes</span><span class="p">)</span>
+
+    <span class="n">idx</span> <span class="o">=</span> <span class="n">nbrs</span><span class="o">.</span><span class="n">kneighbors</span><span class="p">(</span><span class="n">gp</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="o">=</span><span class="n">knn</span><span class="p">,</span> <span class="n">return_distance</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
+
+    <span class="n">gp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">gp</span><span class="p">,</span> <span class="n">gnodes</span><span class="p">[</span><span class="n">idx</span><span class="p">]))</span>
+    <span class="n">pts</span> <span class="o">=</span> <span class="n">gp</span>
+
+    <span class="n">npw</span> <span class="o">=</span> <span class="n">gp</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="n">e</span> <span class="o">=</span> <span class="mi">9999999</span>
+    <span class="n">e_threshold</span> <span class="o">=</span> <span class="mi">10</span>
+
+    <span class="k">while</span> <span class="n">e</span> <span class="o">&gt;</span> <span class="n">e_threshold</span><span class="p">:</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="n">nbrs</span><span class="o">.</span><span class="n">radius_neighbors</span><span class="p">(</span><span class="n">pts</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mf">0.06</span><span class="p">,</span>
+                                    <span class="n">return_distance</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="n">id1</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">idx</span><span class="p">:</span>
+            <span class="n">id1</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">[</span><span class="mi">1</span><span class="p">:][</span><span class="n">gdist</span><span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">1</span><span class="p">:]]</span> <span class="o">&lt;=</span> <span class="n">gdist</span><span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">]]])</span>
+
+        <span class="n">id1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">([</span><span class="n">j</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">id1</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">i</span><span class="p">])</span>
+
+        <span class="n">pts</span> <span class="o">=</span> <span class="n">get_diff</span><span class="p">(</span><span class="n">gp</span><span class="p">,</span> <span class="n">gnodes</span><span class="p">[</span><span class="n">id1</span><span class="p">])</span>
+        <span class="n">gp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">gp</span><span class="p">,</span> <span class="n">pts</span><span class="p">))</span>
+
+        <span class="n">e</span> <span class="o">=</span> <span class="n">gp</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">npw</span>
+        <span class="n">npw</span> <span class="o">=</span> <span class="n">gp</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="c1"># Obtaining the data from each respective node in &#39;gp&#39;. In this case the</span>
+    <span class="c1"># data from the skeleton nodes are considered as wood and the remaining</span>
+    <span class="c1"># data is set as leaf.</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">keys</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="n">gp</span><span class="p">))</span>
+        <span class="n">vals</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="n">nodes_data</span><span class="o">.</span><span class="n">get</span><span class="p">,</span> <span class="n">keys</span><span class="p">)</span>
+        <span class="n">vals</span> <span class="o">=</span> <span class="nb">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">v</span><span class="p">:</span> <span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="n">vals</span><span class="p">)</span>
+        <span class="n">wood</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">vals</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="n">leaf</span> <span class="o">=</span> <span class="n">get_diff</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">wood</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">wood</span><span class="p">,</span> <span class="n">leaf</span>
+    <span class="k">except</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[],</span> <span class="p">[]</span></div>
+
+
+<div class="viewcode-block" id="slice_nodes"><a class="viewcode-back" href="../../../source/tlseparation.utility.html#tlseparation.utility.continuous_clustering.slice_nodes">[docs]</a><span class="k">def</span> <span class="nf">slice_nodes</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">slice_length</span><span class="p">,</span> <span class="n">cluster_threshold</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to slice a 3D point cloud by distance from the base and generate a</span>
+<span class="sd">    skeleton of points.</span>
+
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    arr: array_like</span>
+<span class="sd">        N-dimensional array (m x n) containing a set of parameters (n) over</span>
+<span class="sd">        a set of observations (m). In this case, the set of parameters are the</span>
+<span class="sd">        point cloud coordinates, where each row represents a point.</span>
+<span class="sd">    slice_length: float</span>
+<span class="sd">        Length of the slices of the data in &#39;arr&#39;.</span>
+<span class="sd">    cluster_threshold: float</span>
+<span class="sd">        Distance threshold to be used as constraint in the slice clustering</span>
+<span class="sd">        step.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    cluster_data: dict</span>
+<span class="sd">        Dictionary containing the skeleton nodes coordinates (keys) and the</span>
+<span class="sd">        substet of points from &#39;arr&#39; that generated the respective skeleton</span>
+<span class="sd">        nodes.</span>
+<span class="sd">    cluster_diameter: dict</span>
+<span class="sd">        Dictionary containing the skeleton nodes coordinates (keys) and the</span>
+<span class="sd">        mean diameter of the cluster that generated the respective skeleton</span>
+<span class="sd">        nodes.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Calculating the shortest path distance for the input array (arr).</span>
+    <span class="c1"># Here, the calculate_path module is called twice in order to reach</span>
+    <span class="c1"># as many points in &#39;arr&#39; as possible.</span>
+    <span class="n">nodes</span><span class="p">,</span> <span class="n">dist</span> <span class="o">=</span> <span class="n">calculate_path_mixed</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">return_path</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># Initializing the dictionary variables for output.</span>
+    <span class="n">cluster_data</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+    <span class="n">cluster_diameter</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+    <span class="c1"># Generating the indices of each slice.</span>
+    <span class="n">slice_id</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">((</span><span class="n">dist</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">dist</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span> <span class="o">/</span>
+                        <span class="n">slice_length</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+
+    <span class="c1"># Looping over each slice of the data.</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">slice_id</span><span class="p">):</span>
+        <span class="c1"># Selecting the data from the current slice.</span>
+        <span class="n">data_slice</span> <span class="o">=</span> <span class="n">nodes</span><span class="p">[</span><span class="n">i</span> <span class="o">==</span> <span class="n">slice_id</span><span class="p">]</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># Clustering the data.</span>
+            <span class="n">clusters</span> <span class="o">=</span> <span class="n">data_clustering</span><span class="p">(</span><span class="n">data_slice</span><span class="p">,</span> <span class="n">cluster_threshold</span><span class="p">)</span>
+            <span class="c1"># Looping over every cluster in the slice.</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">clusters</span><span class="p">):</span>
+                <span class="c1"># Selecting data from the current cluster.</span>
+                <span class="n">d</span> <span class="o">=</span> <span class="n">data_slice</span><span class="p">[</span><span class="n">j</span> <span class="o">==</span> <span class="n">clusters</span><span class="p">]</span>
+
+                <span class="c1"># Calculating the central coord and diameter of the current</span>
+                <span class="c1"># cluster.</span>
+                <span class="n">center</span><span class="p">,</span> <span class="n">diameter</span> <span class="o">=</span> <span class="n">central_coord</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+                <span class="n">xm</span><span class="p">,</span> <span class="n">ym</span><span class="p">,</span> <span class="n">zm</span> <span class="o">=</span> <span class="n">center</span>
+                <span class="n">cluster_data</span><span class="p">[</span><span class="n">xm</span><span class="p">,</span> <span class="n">ym</span><span class="p">,</span> <span class="n">zm</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span>
+                <span class="n">cluster_diameter</span><span class="p">[</span><span class="n">xm</span><span class="p">,</span> <span class="n">ym</span><span class="p">,</span> <span class="n">zm</span><span class="p">]</span> <span class="o">=</span> <span class="n">diameter</span>
+
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">pass</span>
+
+    <span class="k">return</span> <span class="n">cluster_data</span><span class="p">,</span> <span class="n">cluster_diameter</span><span class="p">,</span> <span class="n">nodes</span><span class="p">,</span> <span class="n">dist</span></div>
+
+
+<div class="viewcode-block" id="central_coord"><a class="viewcode-back" href="../../../source/tlseparation.utility.html#tlseparation.utility.continuous_clustering.central_coord">[docs]</a><span class="k">def</span> <span class="nf">central_coord</span><span class="p">(</span><span class="n">arr</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to calculate the central coordinate and the mean diameter of an</span>
+<span class="sd">    array of points in 3D space.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    arr: array_like</span>
+<span class="sd">        N-dimensional array (m x n) containing a set of parameters (n) over</span>
+<span class="sd">        a set of observations (m). In this case, the set of parameters are the</span>
+<span class="sd">        point cloud coordinates, where each row represents a point.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    coord: array_like</span>
+<span class="sd">        Central coordinates of the points in the input array.</span>
+<span class="sd">    diameter: float</span>
+<span class="sd">        Mean diameter of the points in the input array.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">min_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">max_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">min_</span> <span class="o">+</span> <span class="p">((</span><span class="n">max_</span> <span class="o">-</span> <span class="n">min_</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">max_</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">min_</span><span class="p">[:</span><span class="mi">2</span><span class="p">])</span></div>
+
+
+<span class="c1">#def data_clustering(point_arr, threshold):</span>
+<span class="c1">#</span>
+<span class="c1">#    &quot;&quot;&quot;</span>
+<span class="c1">#    Function to cluster the array slices using hierarchical clustering.</span>
+<span class="c1">#</span>
+<span class="c1">#    Parameters</span>
+<span class="c1">#    ----------</span>
+<span class="c1">#    point_arr: array</span>
+<span class="c1">#        N-dimensional array (m x n) containing a set of parameters (n) over</span>
+<span class="c1">#        a set of observations (m). In this case, the set of parameters are the</span>
+<span class="c1">#        point cloud coordinates, where each row represents a point.</span>
+<span class="c1">#    threshold: float</span>
+<span class="c1">#        Distance threshold to be used as constraint in the slice clustering</span>
+<span class="c1">#        step.</span>
+<span class="c1">#</span>
+<span class="c1">#    Returns</span>
+<span class="c1">#    -------</span>
+<span class="c1">#    clusters: array_like</span>
+<span class="c1">#        Set of cluster labels for the classified array.</span>
+<span class="c1">#</span>
+<span class="c1">#    &quot;&quot;&quot;</span>
+<span class="c1">#</span>
+<span class="c1">#    clusters = hcluster.fclusterdata(point_arr, threshold, method=&#39;single&#39;,</span>
+<span class="c1">#                                     criterion=&quot;distance&quot;)</span>
+<span class="c1">#</span>
+<span class="c1">#    return clusters</span>
+
+
+<div class="viewcode-block" id="data_clustering"><a class="viewcode-back" href="../../../source/tlseparation.utility.html#tlseparation.utility.continuous_clustering.data_clustering">[docs]</a><span class="k">def</span> <span class="nf">data_clustering</span><span class="p">(</span><span class="n">point_arr</span><span class="p">,</span> <span class="n">threshold</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to cluster the array slices using hierarchical clustering.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    point_arr: array</span>
+<span class="sd">        N-dimensional array (m x n) containing a set of parameters (n) over</span>
+<span class="sd">        a set of observations (m). In this case, the set of parameters are the</span>
+<span class="sd">        point cloud coordinates, where each row represents a point.</span>
+<span class="sd">    threshold: float</span>
+<span class="sd">        Distance threshold to be used as constraint in the slice clustering</span>
+<span class="sd">        step.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    clusters: array_like</span>
+<span class="sd">        Set of cluster labels for the classified array.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<span class="c1">#    clusters = hcluster.fclusterdata(point_arr, threshold, method=&#39;single&#39;,</span>
+<span class="c1">#                                     criterion=&quot;distance&quot;)</span>
+
+    <span class="n">clusterer</span> <span class="o">=</span> <span class="n">hdbscan</span><span class="o">.</span><span class="n">HDBSCAN</span><span class="p">()</span>
+    <span class="n">clusterer</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">point_arr</span><span class="p">)</span>   
+
+    <span class="k">return</span> <span class="n">clusterer</span><span class="o">.</span><span class="n">labels_</span></div>
+
+
+<div class="viewcode-block" id="entries_to_remove"><a class="viewcode-back" href="../../../source/tlseparation.utility.html#tlseparation.utility.continuous_clustering.entries_to_remove">[docs]</a><span class="k">def</span> <span class="nf">entries_to_remove</span><span class="p">(</span><span class="n">entries</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to remove selected entries (key and respective values) from</span>
+<span class="sd">    a given dict.</span>
+<span class="sd">    Based on a reply from the user mattbornski at stackoverflow.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    entries: array_like</span>
+<span class="sd">        Set of entried to be removed.</span>
+<span class="sd">    d: dict</span>
+<span class="sd">        Dictionary to applu the entried removal.</span>
+
+<span class="sd">    Reference</span>
+<span class="sd">    ---------</span>
+<span class="sd">    ..  [1] mattbornski, 2012. http://stackoverflow.com/questions/8995611/\</span>
+<span class="sd">removing-multiple-keys-from-a-dictionary-safely</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">entries</span><span class="p">:</span>
+        <span class="n">d</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div>
+</pre></div>
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, Matheus Boni Vicari.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../',
+            VERSION:'b',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>
