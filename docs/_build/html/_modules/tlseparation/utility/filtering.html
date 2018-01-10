@@ -1,0 +1,760 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>tlseparation.utility.filtering &mdash; TLSeparation b documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+    <link rel="top" title="TLSeparation b documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> TLSeparation
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.2.1.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Table of Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../source/tlseparation.html">1. tlseparation package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">2. CHANGELOG</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">TLSeparation</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+        
+      <li>tlseparation.utility.filtering</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for tlseparation.utility.filtering</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Module to manage the classification filtering.</span>
+
+<span class="sd">@author: Matheus Boni Vicari (matheus.boni.vicari@gmail.com)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">point_compare</span> <span class="k">import</span> <span class="n">get_diff</span>
+<span class="kn">from</span> <span class="nn">knnsearch</span> <span class="k">import</span> <span class="n">set_nbrs_knn</span>
+<span class="kn">from</span> <span class="nn">knnsearch</span> <span class="k">import</span> <span class="n">set_nbrs_rad</span>
+<span class="kn">from</span> <span class="nn">shortpath_nn</span> <span class="k">import</span> <span class="n">calculate_path_mixed_nn</span>
+<span class="kn">from</span> <span class="nn">sklearn.neighbors</span> <span class="k">import</span> <span class="n">NearestNeighbors</span>
+
+
+<div class="viewcode-block" id="dist_majority_knn"><a class="viewcode-back" href="../../../source/tlseparation.utility.html#tlseparation.utility.filtering.dist_majority_knn">[docs]</a><span class="k">def</span> <span class="nf">dist_majority_knn</span><span class="p">(</span><span class="n">arr_1</span><span class="p">,</span> <span class="n">arr_2</span><span class="p">,</span> <span class="n">knn</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to apply majority filter on two arrays.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    arr_1: array</span>
+<span class="sd">        n-dimensional array of points to filter.</span>
+<span class="sd">    arr_2: array</span>
+<span class="sd">        n-dimensional array of points to filter.</span>
+<span class="sd">    knn: int</span>
+<span class="sd">        Number neighbors to select the subset of points to apply the</span>
+<span class="sd">        majority criteria.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    c_maj_1: array</span>
+<span class="sd">        Filtered n-dimensional array of the same class as the input &#39;arr_1&#39;.</span>
+<span class="sd">    c_maj_2: array</span>
+<span class="sd">        Filtered n-dimensional array of the same class as the input &#39;arr_2&#39;.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Stacking the arrays from both classes to generate a combined array.</span>
+    <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">arr_1</span><span class="p">,</span> <span class="n">arr_2</span><span class="p">))</span>
+
+    <span class="c1"># Generating the indices for the local subsets of points around all points</span>
+    <span class="c1"># in the combined array.</span>
+    <span class="n">dist</span><span class="p">,</span> <span class="n">indices</span> <span class="o">=</span> <span class="n">set_nbrs_knn</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">arr</span><span class="p">,</span> <span class="n">knn</span><span class="p">)</span>
+
+    <span class="c1"># Generating the class arrays from both classified arrays and combining</span>
+    <span class="c1"># them into a single classes array (classes).</span>
+    <span class="n">class_1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">arr_1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">)</span>
+    <span class="n">class_2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">arr_2</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">2</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">)</span>
+    <span class="n">classes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">class_1</span><span class="p">,</span> <span class="n">class_2</span><span class="p">))</span><span class="o">.</span><span class="n">T</span>
+
+    <span class="c1"># Allocating output variable.</span>
+    <span class="n">c_maj</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">classes</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+    <span class="c1"># Selecting subset of classes based on the neighborhood expressed by</span>
+    <span class="c1"># indices.</span>
+    <span class="n">class_</span> <span class="o">=</span> <span class="n">classes</span><span class="p">[</span><span class="n">indices</span><span class="p">]</span>
+
+    <span class="c1"># Looping over all points in indices.</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">)):</span>
+
+        <span class="c1"># Obtaining classe from indices i.</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">class_</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:]</span>
+        <span class="c1"># Caculating accummulated distance for each class.</span>
+        <span class="n">d1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dist</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">c</span> <span class="o">==</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="n">d2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dist</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">c</span> <span class="o">==</span> <span class="mi">2</span><span class="p">])</span>
+        <span class="c1"># Checking which class has the highest distance and assigning it</span>
+        <span class="c1"># to current index in c_maj.</span>
+        <span class="k">if</span> <span class="n">d1</span> <span class="o">&gt;=</span> <span class="n">d2</span><span class="p">:</span>
+            <span class="n">c_maj</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">elif</span> <span class="n">d1</span> <span class="o">&lt;</span> <span class="n">d2</span><span class="p">:</span>
+            <span class="n">c_maj</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mi">2</span>
+
+    <span class="k">return</span> <span class="n">arr</span><span class="p">[</span><span class="n">c_maj</span> <span class="o">==</span> <span class="mi">1</span><span class="p">],</span> <span class="n">arr</span><span class="p">[</span><span class="n">c_maj</span> <span class="o">==</span> <span class="mi">2</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="continuity_filter"><a class="viewcode-back" href="../../../source/tlseparation.utility.html#tlseparation.utility.filtering.continuity_filter">[docs]</a><span class="k">def</span> <span class="nf">continuity_filter</span><span class="p">(</span><span class="n">wood</span><span class="p">,</span> <span class="n">leaf</span><span class="p">,</span> <span class="n">rad</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">n_samples</span><span class="o">=</span><span class="p">[]):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to apply a continuity filter to a point cloud that contains gaps</span>
+<span class="sd">    defined as points from a second point cloud.</span>
+<span class="sd">    This function works assuming that the continuous variable is the</span>
+<span class="sd">    wood portion of a tree point cloud and the gaps in it are empty space</span>
+<span class="sd">    or missclassified leaf data. In this sense, this function tries to correct</span>
+<span class="sd">    gaps where leaf points are present.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    wood: array</span>
+<span class="sd">        Wood point cloud to be filtered.</span>
+<span class="sd">    leaf: array</span>
+<span class="sd">        Leaf point cloud, that might be causing discontinuities in the</span>
+<span class="sd">        wood point cloud.</span>
+<span class="sd">    rad: float</span>
+<span class="sd">        Radius to search for neighboring points in the iterative process.</span>
+<span class="sd">    n_samples:</span>
+<span class="sd">        Number of samples to calculate the shortest path procedure and the</span>
+<span class="sd">        upscale to the whole point cloud (wood + leaf).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    wood: array</span>
+<span class="sd">        Filtered wood point cloud.</span>
+
+<span class="sd">    not_wood: array</span>
+<span class="sd">        Remaining point clouds after the filtering.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Stacking wood and leaf arrays.</span>
+    <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">wood</span><span class="p">,</span> <span class="n">leaf</span><span class="p">))</span>
+
+    <span class="c1"># Obtaining wood point cloud indices.</span>
+    <span class="n">wood_id</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">wood</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="c1"># Checking the number of samples and if not declared, calculate a</span>
+    <span class="c1"># reasonable number (one third of total points).</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">n_samples</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">n_samples</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">(</span><span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="mi">3</span><span class="p">)</span>
+
+    <span class="c1"># Selecting n_samples random indices for sampling arr.</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">n_samples</span><span class="p">,</span>
+                         <span class="n">replace</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="c1"># Get sample array.</span>
+    <span class="n">arr_sample</span> <span class="o">=</span> <span class="n">arr</span><span class="p">[</span><span class="n">s</span><span class="p">]</span>
+
+    <span class="c1"># Calculating shortest path graph over sampled array.</span>
+<span class="c1">#    nodes, dist, path = calculate_path_mixed_nn(arr_sample, n_neighbors=3)</span>
+    <span class="n">nodes</span><span class="p">,</span> <span class="n">nodes_ids</span><span class="p">,</span> <span class="n">dist</span> <span class="o">=</span> <span class="n">calculate_path_mixed_nn</span><span class="p">(</span><span class="n">arr_sample</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+                                                     <span class="n">return_path</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># Generating nearest neighbors search for the entire point cloud (arr).</span>
+    <span class="n">nbrs</span> <span class="o">=</span> <span class="n">NearestNeighbors</span><span class="p">(</span><span class="n">algorithm</span><span class="o">=</span><span class="s1">&#39;kd_tree&#39;</span><span class="p">,</span> <span class="n">leaf_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+                            <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>
+
+    <span class="c1"># Converting dist variable to array, as it is originaly a list.</span>
+    <span class="n">dist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">dist</span><span class="p">)</span>
+
+    <span class="c1"># Upscaling dist to entire point cloud (arr).</span>
+    <span class="n">dist</span> <span class="o">=</span> <span class="n">apply_nn_value</span><span class="p">(</span><span class="n">nodes</span><span class="p">,</span> <span class="n">arr</span><span class="p">,</span> <span class="n">dist</span><span class="p">)</span>
+
+    <span class="c1"># Selecting points and accummulated distance for all wood points in arr.</span>
+    <span class="n">gp</span> <span class="o">=</span> <span class="n">arr</span><span class="p">[</span><span class="n">wood_id</span><span class="p">]</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">dist</span><span class="p">[</span><span class="n">wood_id</span><span class="p">]</span>
+
+    <span class="c1"># Preparing control variables to iterate over. idbase will be all initial</span>
+    <span class="c1"># wood ids and pts all initial wood points. These variables are the ones</span>
+    <span class="c1"># to use in search of possible missclassified neighbors.</span>
+    <span class="n">idbase</span> <span class="o">=</span> <span class="n">wood_id</span>
+    <span class="n">pts</span> <span class="o">=</span> <span class="n">gp</span>
+
+    <span class="c1"># Setting treshold variables to iterative process.</span>
+    <span class="n">e</span> <span class="o">=</span> <span class="mi">9999999</span>
+    <span class="n">e_threshold</span> <span class="o">=</span> <span class="mi">3</span>
+
+    <span class="c1"># Iterating until threshold is met.</span>
+    <span class="k">while</span> <span class="n">e</span> <span class="o">&gt;</span> <span class="n">e_threshold</span><span class="p">:</span>
+
+        <span class="c1"># Obtaining the neighbor indices of current set of points (pts).</span>
+        <span class="n">idx2</span> <span class="o">=</span> <span class="n">nbrs</span><span class="o">.</span><span class="n">radius_neighbors</span><span class="p">(</span><span class="n">pts</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="n">rad</span><span class="p">,</span>
+                                     <span class="n">return_distance</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="c1"># Initializing temporary variable id1.</span>
+        <span class="n">id1</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1"># Looping over nn search indices and comparing their respective</span>
+        <span class="c1"># distances to center point distance. If nearest neighbor distance (to</span>
+        <span class="c1"># point cloud base) is smaller than center point distance, then ith</span>
+        <span class="c1"># point is also wood.</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">idx2</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+            <span class="k">for</span> <span class="n">i_</span> <span class="ow">in</span> <span class="n">idx2</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="n">dist</span><span class="p">[</span><span class="n">i_</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="n">i</span><span class="p">]):</span>
+                    <span class="n">id1</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i_</span><span class="p">)</span>
+
+        <span class="c1"># Uniquifying id1.</span>
+        <span class="n">id1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">id1</span><span class="p">)</span>
+
+        <span class="c1"># Comparing original idbase to new wood ids (id1).</span>
+        <span class="n">comp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">in1d</span><span class="p">(</span><span class="n">id1</span><span class="p">,</span> <span class="n">idbase</span><span class="p">)</span>
+
+        <span class="c1"># Maintaining only new ids for next iteration.</span>
+        <span class="n">diff</span> <span class="o">=</span> <span class="n">id1</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="o">~</span><span class="n">comp</span><span class="p">)[</span><span class="mi">0</span><span class="p">]]</span>
+        <span class="n">idbase</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">idbase</span><span class="p">,</span> <span class="n">id1</span><span class="p">)))</span>
+
+        <span class="c1"># Passing new wood points to pts and recalculating e value.</span>
+        <span class="n">pts</span> <span class="o">=</span> <span class="n">arr</span><span class="p">[</span><span class="n">diff</span><span class="p">]</span>
+        <span class="n">e</span> <span class="o">=</span> <span class="n">pts</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># Passing accummulated distances from new points to d.</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">dist</span><span class="p">[</span><span class="n">diff</span><span class="p">]</span>
+
+        <span class="c1"># Stacking new points to initial wood points and removing duplicates.</span>
+        <span class="n">gp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">gp</span><span class="p">,</span> <span class="n">pts</span><span class="p">))</span>
+        <span class="n">gp</span> <span class="o">=</span> <span class="n">remove_duplicates</span><span class="p">(</span><span class="n">gp</span><span class="p">)</span>
+
+    <span class="c1"># Removing duplicates from final wood points and obtaining not_wood points</span>
+    <span class="c1"># from the difference between final wood points and full point cloud.</span>
+    <span class="n">wood</span> <span class="o">=</span> <span class="n">remove_duplicates</span><span class="p">(</span><span class="n">gp</span><span class="p">)</span>
+    <span class="n">not_wood</span> <span class="o">=</span> <span class="n">get_diff</span><span class="p">(</span><span class="n">wood</span><span class="p">,</span> <span class="n">arr</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">wood</span><span class="p">,</span> <span class="n">not_wood</span></div>
+
+
+<div class="viewcode-block" id="remove_duplicates"><a class="viewcode-back" href="../../../source/tlseparation.utility.html#tlseparation.utility.filtering.remove_duplicates">[docs]</a><span class="k">def</span> <span class="nf">remove_duplicates</span><span class="p">(</span><span class="n">arr</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to remove duplicated rows from an array.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    arr: array</span>
+<span class="sd">        N-dimensional array (m x n) containing a set of parameters (n) over a</span>
+<span class="sd">        set of observations (m).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    unique: array</span>
+<span class="sd">        N-dimensional array (m* x n) containing a set of unique parameters (n)</span>
+<span class="sd">        over a set of unique observations (m*).</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Setting the pandas.DataFrame from the array (arr) data.</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="n">arr</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="n">arr</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="s1">&#39;z&#39;</span><span class="p">:</span> <span class="n">arr</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]})</span>
+
+    <span class="c1"># Using the drop_duplicates function to remove the duplicate points from</span>
+    <span class="c1"># df.</span>
+    <span class="n">unique</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">([</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">unique</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="apply_nn_value"><a class="viewcode-back" href="../../../source/tlseparation.utility.html#tlseparation.utility.filtering.apply_nn_value">[docs]</a><span class="k">def</span> <span class="nf">apply_nn_value</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">arr</span><span class="p">,</span> <span class="n">attr</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Fundtion to upscale a set of attributes from a base array to another</span>
+<span class="sd">    denser array.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    base: array</span>
+<span class="sd">        Base array to which the attributes to upscale were originaly matched.</span>
+<span class="sd">    arr: array</span>
+<span class="sd">        Target array to which the attributes will be upscaled.</span>
+<span class="sd">    attr: array</span>
+<span class="sd">        Attributes to upscale.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    new_attr: array</span>
+<span class="sd">        Upscales attributes.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">nbrs</span> <span class="o">=</span> <span class="n">NearestNeighbors</span><span class="p">(</span><span class="n">n_neighbors</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">algorithm</span><span class="o">=</span><span class="s1">&#39;kd_tree&#39;</span><span class="p">,</span>
+                            <span class="n">leaf_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">base</span><span class="p">)</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="n">nbrs</span><span class="o">.</span><span class="n">kneighbors</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">return_distance</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="n">newattr</span> <span class="o">=</span> <span class="n">attr</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">newattr</span><span class="p">,</span> <span class="n">newattr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="majority"><a class="viewcode-back" href="../../../source/tlseparation.utility.html#tlseparation.utility.filtering.majority">[docs]</a><span class="k">def</span> <span class="nf">majority</span><span class="p">(</span><span class="n">classes</span><span class="p">,</span> <span class="n">indices</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to apply a majority filter on a set of classes.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    classes: array_like</span>
+<span class="sd">        1D set of classes labels to apply the filter.</span>
+<span class="sd">    indices:</span>
+<span class="sd">        Nearest neihbors indices for each entry in classes.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    c_maj: array_like</span>
+<span class="sd">        1D set of filtered classes labels.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Allocating output variable.</span>
+    <span class="n">c_maj</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">classes</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+    <span class="c1"># Selecting subset of classes based on the neighborhood expressed by</span>
+    <span class="c1"># indices.</span>
+    <span class="n">class_</span> <span class="o">=</span> <span class="n">classes</span><span class="p">[</span><span class="n">indices</span><span class="p">]</span>
+
+    <span class="c1"># Looping over the target points to filter.</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">)):</span>
+
+        <span class="c1"># Counting the number of occurrences of each value in the ith instance</span>
+        <span class="c1"># of class_.</span>
+        <span class="n">count</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">class_</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:])</span>
+        <span class="c1"># Appending the majority class into the output variable.</span>
+        <span class="n">c_maj</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">count</span><span class="o">.</span><span class="n">argmax</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">c_maj</span></div>
+
+
+<div class="viewcode-block" id="class_filter"><a class="viewcode-back" href="../../../source/tlseparation.utility.html#tlseparation.utility.filtering.class_filter">[docs]</a><span class="k">def</span> <span class="nf">class_filter</span><span class="p">(</span><span class="n">arr_1</span><span class="p">,</span> <span class="n">arr_2</span><span class="p">,</span> <span class="n">knn</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to apply a majority filter on a set of classes, while focusing on</span>
+<span class="sd">    a class.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    classes: array_like</span>
+<span class="sd">        1D set of classes labels to apply the filter.</span>
+<span class="sd">    target: scalar or array_like</span>
+<span class="sd">        Set of classes labels to focus the filter on.</span>
+<span class="sd">    indices:</span>
+<span class="sd">        Nearest neihbors indices for each entry in classes.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    c_maj: array_like</span>
+<span class="sd">        1D set of filtered classes labels.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">arr_1</span><span class="p">,</span> <span class="n">arr_2</span><span class="p">))</span>
+
+    <span class="n">class_1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">arr_1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">)</span>
+    <span class="n">class_2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">arr_2</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">2</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">)</span>
+    <span class="n">classes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">class_1</span><span class="p">,</span> <span class="n">class_2</span><span class="p">))</span><span class="o">.</span><span class="n">T</span>
+
+    <span class="n">indices</span> <span class="o">=</span> <span class="n">set_nbrs_knn</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">arr</span><span class="p">,</span> <span class="n">knn</span><span class="p">,</span> <span class="n">return_dist</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># Allocating output variable.</span>
+    <span class="n">c_maj</span> <span class="o">=</span> <span class="n">classes</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># Selecting subset of classes based on the neighborhood expressed by</span>
+    <span class="c1"># indices.</span>
+    <span class="n">class_</span> <span class="o">=</span> <span class="n">classes</span><span class="p">[</span><span class="n">indices</span><span class="p">]</span>
+
+    <span class="c1"># Checking for the target class.</span>
+    <span class="n">target_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">classes</span> <span class="o">==</span> <span class="n">target</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="c1"># Looping over the target points to filter.</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">target_idx</span><span class="p">:</span>
+
+        <span class="c1"># Counting the number of occurrences of each value in the ith instance</span>
+        <span class="c1"># of class_.</span>
+        <span class="n">count</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">class_</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:])</span>
+        <span class="c1"># Appending the majority class into the output variable.</span>
+        <span class="n">c_maj</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">count</span><span class="o">.</span><span class="n">argmax</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">arr</span><span class="p">[</span><span class="n">c_maj</span> <span class="o">==</span> <span class="mi">1</span><span class="p">],</span> <span class="n">arr</span><span class="p">[</span><span class="n">c_maj</span> <span class="o">==</span> <span class="mi">2</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="class_filter_rad"><a class="viewcode-back" href="../../../source/tlseparation.utility.html#tlseparation.utility.filtering.class_filter_rad">[docs]</a><span class="k">def</span> <span class="nf">class_filter_rad</span><span class="p">(</span><span class="n">arr_1</span><span class="p">,</span> <span class="n">arr_2</span><span class="p">,</span> <span class="n">rad</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to apply a majority filter on a set of classes, while focusing on</span>
+<span class="sd">    a class.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    classes: array_like</span>
+<span class="sd">        1D set of classes labels to apply the filter.</span>
+<span class="sd">    target: scalar or array_like</span>
+<span class="sd">        Set of classes labels to focus the filter on.</span>
+<span class="sd">    indices:</span>
+<span class="sd">        Nearest neihbors indices for each entry in classes.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    c_maj: array_like</span>
+<span class="sd">        1D set of filtered classes labels.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">arr_1</span><span class="p">,</span> <span class="n">arr_2</span><span class="p">))</span>
+
+    <span class="n">class_1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">arr_1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">)</span>
+    <span class="n">class_2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">arr_2</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">2</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">)</span>
+    <span class="n">classes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">class_1</span><span class="p">,</span> <span class="n">class_2</span><span class="p">))</span><span class="o">.</span><span class="n">T</span>
+
+    <span class="n">indices</span> <span class="o">=</span> <span class="n">set_nbrs_rad</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">arr</span><span class="p">,</span> <span class="n">rad</span><span class="p">,</span> <span class="n">return_dist</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># Allocating output variable.</span>
+    <span class="n">c_maj</span> <span class="o">=</span> <span class="n">classes</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># Checking for the target class.</span>
+    <span class="n">target_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">classes</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">target</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="c1"># Looping over the target points to filter.</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">target_idx</span><span class="p">:</span>
+
+        <span class="n">class_</span> <span class="o">=</span> <span class="n">classes</span><span class="p">[</span><span class="n">indices</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span>
+        <span class="c1"># Counting the number of occurrences of each value in the ith instance</span>
+        <span class="c1"># of class_.</span>
+        <span class="n">count</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">class_</span><span class="p">)</span>
+        <span class="n">c_maj</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">count</span><span class="o">.</span><span class="n">argmax</span><span class="p">()</span>
+
+        <span class="c1"># Appending the majority class into the output variable.</span>
+        <span class="n">c_maj</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">count</span><span class="o">.</span><span class="n">argmax</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">arr</span><span class="p">[</span><span class="n">c_maj</span> <span class="o">==</span> <span class="mi">1</span><span class="p">],</span> <span class="n">arr</span><span class="p">[</span><span class="n">c_maj</span> <span class="o">==</span> <span class="mi">2</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="array_majority_rad"><a class="viewcode-back" href="../../../source/tlseparation.utility.html#tlseparation.utility.filtering.array_majority_rad">[docs]</a><span class="k">def</span> <span class="nf">array_majority_rad</span><span class="p">(</span><span class="n">arr_1</span><span class="p">,</span> <span class="n">arr_2</span><span class="p">,</span> <span class="n">rad</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to apply majority filter on two arrays.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    arr_1: array</span>
+<span class="sd">        n-dimensional array of points to filter.</span>
+<span class="sd">    arr_2: array</span>
+<span class="sd">        n-dimensional array of points to filter.</span>
+<span class="sd">    knn: int</span>
+<span class="sd">        Number neighbors to select the subset of points to apply the</span>
+<span class="sd">        majority criteria.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    c_maj_1: array</span>
+<span class="sd">        Filtered n-dimensional array of the same class as the input &#39;arr_1&#39;.</span>
+<span class="sd">    c_maj_2: array</span>
+<span class="sd">        Filtered n-dimensional array of the same class as the input &#39;arr_2&#39;.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Stacking the arrays from both classes to generate a combined array.</span>
+    <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">arr_1</span><span class="p">,</span> <span class="n">arr_2</span><span class="p">))</span>
+
+    <span class="c1"># Generating the indices for the local subsets of points around all points</span>
+    <span class="c1"># in the combined array.</span>
+    <span class="n">indices</span> <span class="o">=</span> <span class="n">set_nbrs_rad</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">arr</span><span class="p">,</span> <span class="n">rad</span><span class="p">,</span> <span class="n">return_dist</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># Generating the class arrays from both classified arrays and combining</span>
+    <span class="c1"># them into a single classes array (classes).</span>
+    <span class="n">class_1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">arr_1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">)</span>
+    <span class="n">class_2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">arr_2</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">2</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">)</span>
+    <span class="n">classes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">class_1</span><span class="p">,</span> <span class="n">class_2</span><span class="p">))</span><span class="o">.</span><span class="n">T</span>
+
+    <span class="c1"># Allocating output variable.</span>
+    <span class="n">c_maj</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">classes</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+    <span class="c1"># Selecting subset of classes based on the neighborhood expressed by</span>
+    <span class="c1"># indices.</span>
+    <span class="n">class_</span> <span class="o">=</span> <span class="n">classes</span><span class="p">[</span><span class="n">indices</span><span class="p">]</span>
+
+    <span class="c1"># Looping over all points in indices.</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">)):</span>
+
+        <span class="c1"># Counting the number of occurrences of each value in the ith instance</span>
+        <span class="c1"># of class_.</span>
+        <span class="n">unique</span><span class="p">,</span> <span class="n">count</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">class_</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:],</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># Appending the majority class into the output variable.</span>
+        <span class="n">c_maj</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">unique</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">count</span><span class="p">)]</span>
+
+    <span class="k">return</span> <span class="n">arr</span><span class="p">[</span><span class="n">c_maj</span> <span class="o">==</span> <span class="mi">1</span><span class="p">],</span> <span class="n">arr</span><span class="p">[</span><span class="n">c_maj</span> <span class="o">==</span> <span class="mi">2</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="array_majority"><a class="viewcode-back" href="../../../source/tlseparation.utility.html#tlseparation.utility.filtering.array_majority">[docs]</a><span class="k">def</span> <span class="nf">array_majority</span><span class="p">(</span><span class="n">arr_1</span><span class="p">,</span> <span class="n">arr_2</span><span class="p">,</span> <span class="n">knn</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to apply majority filter on two arrays.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    arr_1: array</span>
+<span class="sd">        n-dimensional array of points to filter.</span>
+<span class="sd">    arr_2: array</span>
+<span class="sd">        n-dimensional array of points to filter.</span>
+<span class="sd">    knn: int</span>
+<span class="sd">        Number neighbors to select the subset of points to apply the</span>
+<span class="sd">        majority criteria.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    c_maj_1: array</span>
+<span class="sd">        Filtered n-dimensional array of the same class as the input &#39;arr_1&#39;.</span>
+<span class="sd">    c_maj_2: array</span>
+<span class="sd">        Filtered n-dimensional array of the same class as the input &#39;arr_2&#39;.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Stacking the arrays from both classes to generate a combined array.</span>
+    <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">arr_1</span><span class="p">,</span> <span class="n">arr_2</span><span class="p">))</span>
+
+    <span class="c1"># Generating the indices for the local subsets of points around all points</span>
+    <span class="c1"># in the combined array.</span>
+    <span class="n">indices</span> <span class="o">=</span> <span class="n">set_nbrs_knn</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">arr</span><span class="p">,</span> <span class="n">knn</span><span class="p">,</span> <span class="n">return_dist</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># Generating the class arrays from both classified arrays and combining</span>
+    <span class="c1"># them into a single classes array (classes).</span>
+    <span class="n">class_1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">arr_1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">)</span>
+    <span class="n">class_2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">arr_2</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">2</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">)</span>
+    <span class="n">classes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">class_1</span><span class="p">,</span> <span class="n">class_2</span><span class="p">))</span><span class="o">.</span><span class="n">T</span>
+
+    <span class="c1"># Allocating output variable.</span>
+    <span class="n">c_maj</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">classes</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+    <span class="c1"># Selecting subset of classes based on the neighborhood expressed by</span>
+    <span class="c1"># indices.</span>
+    <span class="n">class_</span> <span class="o">=</span> <span class="n">classes</span><span class="p">[</span><span class="n">indices</span><span class="p">]</span>
+
+    <span class="c1"># Looping over all points in indices.</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">)):</span>
+
+        <span class="c1"># Counting the number of occurrences of each value in the ith instance</span>
+        <span class="c1"># of class_.</span>
+        <span class="n">unique</span><span class="p">,</span> <span class="n">count</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">class_</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:],</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># Appending the majority class into the output variable.</span>
+        <span class="n">c_maj</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">unique</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">count</span><span class="p">)]</span>
+
+    <span class="k">return</span> <span class="n">arr</span><span class="p">[</span><span class="n">c_maj</span> <span class="o">==</span> <span class="mi">1</span><span class="p">],</span> <span class="n">arr</span><span class="p">[</span><span class="n">c_maj</span> <span class="o">==</span> <span class="mi">2</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="entries_to_remove"><a class="viewcode-back" href="../../../source/tlseparation.utility.html#tlseparation.utility.filtering.entries_to_remove">[docs]</a><span class="k">def</span> <span class="nf">entries_to_remove</span><span class="p">(</span><span class="n">entries</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to remove selected entries (key and respective values) from</span>
+<span class="sd">    a given dict.</span>
+<span class="sd">    Based on a reply from the user mattbornski at stackoverflow.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    entries: array_like</span>
+<span class="sd">        Set of entried to be removed.</span>
+<span class="sd">    d: dict</span>
+<span class="sd">        Dictionary to applu the entried removal.</span>
+
+<span class="sd">    Reference</span>
+<span class="sd">    ---------</span>
+<span class="sd">    ..  [1] mattbornski, 2012. http://stackoverflow.com/questions/8995611/\</span>
+<span class="sd">removing-multiple-keys-from-a-dictionary-safely</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">entries</span><span class="p">:</span>
+        <span class="n">d</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div>
+</pre></div>
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, Matheus Boni Vicari.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../',
+            VERSION:'b',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>
