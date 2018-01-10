@@ -1,31 +1,20 @@
 # Copyright (c) 2017, Matheus Boni Vicari, TLSeparation Project
 # All rights reserved.
 #
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
 #
-#     1. Redistributions of source code must retain the above copyright notice,
-#        this list of conditions and the following disclaimer.
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
 #
-#     2. Redistributions in binary form must reproduce the above copyright
-#        notice, this list of conditions and the following disclaimer in the
-#        documentation and/or other materials provided with the distribution.
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
 #
-#     3. Neither the name of the Raysect Project nor the names of its
-#        contributors may be used to endorse or promote products derived from
-#        this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 
 __author__ = "Matheus Boni Vicari"
 __copyright__ = "Copyright 2017, TLSeparation Project"
@@ -39,11 +28,11 @@ __status__ = "Development"
 import numpy as np
 
 
-def geodescriptors(arr, nbr_idx):
+def knn_features(arr, nbr_idx, block_size=200000):
 
     """
-    Function to calculate the geometric descriptors: salient features and
-    tensor features.
+    Calculates geometric descriptors: salient features and tensor features
+    from an array and an indexing with fixed numbers of neighbors.
 
     Args:
         arr (array): Three-dimensional (m x n) array of a point cloud, where
@@ -61,11 +50,26 @@ def geodescriptors(arr, nbr_idx):
 
     """
 
+    # Making sure block_size is limited by at most the number of points in
+    # arr.
+    if block_size > arr.shape[0]:
+        block_size = arr.shape[0]
+
+    # Creating block of ids.
+    ids = np.arange(arr.shape[0])
+    ids = np.array_split(ids, int(arr.shape[0] / block_size))
+
     # Making sure nbr_idx has the correct data type.
     nbr_idx = nbr_idx.astype(int)
 
-    # Calculating the eigenvalues.
-    s = eigen(arr[nbr_idx])
+    # Allocating s.
+    s = np.zeros([arr.shape[0], 3], dtype=float)
+
+    # Looping over blocks of ids to calculating eigenvalues for the
+    # neighborhood around each point in arr.
+    for i in ids:
+        # Calculating the eigenvalues.
+        s[i] = knn_evals(arr[nbr_idx[i]])
 
     # Calculating the ratio of the eigenvalues.
     ratio = (s.T / np.sum(s, axis=1)).T
@@ -80,10 +84,10 @@ def geodescriptors(arr, nbr_idx):
     return features
 
 
-def eigen(arr_stack):
+def knn_evals(arr_stack):
 
     """
-    Function to calculate the eigenvalues of a stack of arrays.
+    Calculates eigenvalues of a stack of arrays.
 
     Args:
         arr_stack (array): N-dimensional array (l x m x n) containing a
@@ -177,3 +181,27 @@ python.
     # Using the einstein summation of the centered data in regard to the array
     # stack shape to return the covariance of each array in the stack.
     return np.einsum('ijk,ijl->ikl', diffs, diffs)/arr_stack.shape[1]
+
+
+def svd_evals(arr):
+
+    """
+    Calculates eigenvalues of an array using SVD.
+
+    Args:
+        arr (array): nxm numpy.ndarray where n is the number of samples and
+            m is the number of dimensions.
+
+    Returns:
+        evals (array): 1xm numpy.ndarray containing the calculated eigenvalues
+            in decrescent order.
+
+    """
+
+    # Calculating centroid coordinates of points in 'arr'.
+    centroid = np.average(arr, axis=0)
+
+    # Running SVD on centered points from 'arr'.
+    _, evals, evecs = np.linalg.svd(arr - centroid)
+
+    return evals

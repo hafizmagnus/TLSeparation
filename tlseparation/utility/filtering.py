@@ -1,31 +1,20 @@
 # Copyright (c) 2017, Matheus Boni Vicari, TLSeparation Project
 # All rights reserved.
 #
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
 #
-#     1. Redistributions of source code must retain the above copyright notice,
-#        this list of conditions and the following disclaimer.
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
 #
-#     2. Redistributions in binary form must reproduce the above copyright
-#        notice, this list of conditions and the following disclaimer in the
-#        documentation and/or other materials provided with the distribution.
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
 #
-#     3. Neither the name of the Raysect Project nor the names of its
-#        contributors may be used to endorse or promote products derived from
-#        this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 
 __author__ = "Matheus Boni Vicari"
 __copyright__ = "Copyright 2017, TLSeparation Project"
@@ -41,9 +30,99 @@ from knnsearch import (set_nbrs_knn, set_nbrs_rad)
 from data_utils import (get_diff, remove_duplicates)
 from shortpath import (array_to_graph, extract_path_info)
 from sklearn.neighbors import NearestNeighbors
+from sklearn.cluster import DBSCAN
+import sys
+sys.path.append('..')
+
+from classification.point_features import svd_evals
 
 
-def continuity_filter(wood, leaf, rad=0.05, n_samples=[]):
+def cluster_filter(arr, max_dist, min_points, eval_threshold):
+
+    """
+    Applies a cluster filter to a point cloud 'arr'. This filter aims to
+    remove small, isolated, clusters of points.
+
+    Args:
+        arr (array): Point cloud of shape n points x m dimensions to be
+            filtered.
+        max_dist (float): Maximum distance between pairs of points for them
+            to be considered as part of the same cluster. Also related to
+            minimum distance between clusters.
+        min_points (int): Minimum number of points in a cluster. Points that
+            are part of clusters with less than min_points are filtered out.
+        eval_threshold (float): Minimum value for largest eigenvalue for a
+            valid cluster. This value is an indication of cluster shape,
+            in which the higher the eigenvalue, more elongated is the cluster.
+            Points from clusters that have eigenvalue smaller then
+            eval_threshold are filtered out.
+
+    Returns:
+        mask (array): Boolean mask of filtered points. Entries are set as
+            True if belonging to a valid cluster and False otherwise.
+
+    """
+
+    # Initializing and fitting DBSCAN clustering to input array 'arr'.
+    clusterer = DBSCAN(eps=max_dist, n_jobs=-1).fit(arr)
+    labels = clusterer.labels_
+
+    # Initializing arrat of final eigenvalues for each cluster.
+    final_evals = np.zeros([labels.shape[0], 3])
+    # Looping over each unique cluster label.
+    for l in np.unique(labels):
+        # Obtaining indices for all entries in 'arr' that are part of current
+        # cluster.
+        ids = np.where(labels == l)[0]
+        # Checking if current cluster is not an empty cluster (label == -1).
+        if l != -1:
+            # Check if cluster has more points than min_points.
+            if ids.shape[0] >= min_points:
+                # Calculated eigenvalues for current cluster.
+                e = svd_evals(arr[ids])
+                # Assigning current eigenvalues to indices of all points of
+                # current cluster in final_evals.
+                final_evals[ids] = e
+
+    # Mask points by largest eigenvalue (column -0).
+    return final_evals[:, 0] >= eval_threshold
+
+
+def radius_filter(arr, radius, min_points):
+
+    """
+    Applies a radius search filter, which remove isolated points/clusters of
+    points.
+
+    Args:
+        arr (array): Point cloud of shape n points x m dimensions to be
+            filtered.
+        radius (float): Search radius around each point to form a neighborhood.
+        min_point (int): Minimum number of points in a neighborhood for it
+            to be considered valid, i.e not filtered out.
+
+    Returns:
+        mask (array): Array of bools masking valid points as True and
+            "noise" points as False.
+
+    """
+
+    # Setting up neighborhood indices.
+    indices = set_nbrs_rad(arr, arr, radius, return_dist=False)
+
+    # Allocating array of neighborhood's sizes (one entry for each point in
+    # arr).
+    n_points = np.zeros(arr.shape[0], dtype=int)
+
+    # Iterating over each entry in indices and calculating total number of
+    # points.
+    for i, id_ in enumerate(indices):
+        n_points[i] = id_.shape[0]
+
+    return n_points >= min_points
+
+
+def continuity_filter(wood, leaf, rad=0.05):
 
     """
     Function to apply a continuity filter to a point cloud that contains gaps
@@ -53,23 +132,16 @@ def continuity_filter(wood, leaf, rad=0.05, n_samples=[]):
     or missclassified leaf data. In this sense, this function tries to correct
     gaps where leaf points are present.
 
-    Parameters
-    ----------
-    wood: array
-        Wood point cloud to be filtered.
-    leaf: array
-        Leaf point cloud, that might be causing discontinuities in the
-        wood point cloud.
-    rad: float
-        Radius to search for neighboring points in the iterative process.
+    Args:
+        wood (array): Wood point cloud to be filtered.
+        leaf (array): Leaf point cloud, with points that may be causing
+            discontinuities in the wood point cloud.
+        rad (float): Radius to search for neighboring points in the iterative
+            process.
 
-    Returns
-    -------
-    wood: array
-        Filtered wood point cloud.
-
-    not_wood: array
-        Remaining point clouds after the filtering.
+    Returns:
+        wood (array): Filtered wood point cloud.
+        not_wood (array): Remaining point clouds after the filtering.
 
     """
 
@@ -166,9 +238,9 @@ def array_majority(arr_1, arr_2, **kwargs):
             neighbors in order to apply the majority criteria.
 
     Returns:
-        c_maj_1 (array): Filtered n-dimensional array of the same class as the
+        c_maj_1 (array): Boolean mask of filtered entries of same class as
             input 'arr_1'.
-        c_maj_2 (array): Filtered n-dimensional array of the same class as the
+        c_maj_2 (array): Boolean mask of filtered entries of same class as
             input 'arr_2'.
 
     Raises:
@@ -225,7 +297,7 @@ def array_majority(arr_1, arr_2, **kwargs):
         # Appending the majority class into the output variable.
         c_maj[i] = unique[np.argmax(count)]
 
-    return arr[c_maj == 1], arr[c_maj == 2]
+    return c_maj == 1, c_maj == 2
 
 
 def class_filter(arr_1, arr_2, target, **kwargs):
@@ -247,9 +319,9 @@ def class_filter(arr_1, arr_2, target, **kwargs):
             neighbors in order to apply the majority criteria.
 
     Returns:
-        c_maj_1 (array): Filtered n-dimensional array of the same class as the
+        c_maj_1 (array): Boolean mask of filtered entries of same class as
             input 'arr_1'.
-        c_maj_2 (array): Filtered n-dimensional array of the same class as the
+        c_maj_2 (array): Boolean mask of filtered entries of same class as
             input 'arr_2'.
 
     Raises:
@@ -316,7 +388,7 @@ def class_filter(arr_1, arr_2, target, **kwargs):
         # Appending the majority class into the output variable.
         c_maj[i] = count.argmax()
 
-    return arr[c_maj == 1], arr[c_maj == 2]
+    return c_maj == 1, c_maj == 2
 
 
 def dist_majority(arr_1, arr_2, **kwargs):
@@ -334,9 +406,9 @@ def dist_majority(arr_1, arr_2, **kwargs):
             neighbors in order to apply the majority criteria.
 
     Returns:
-        c_maj_1 (array): Filtered n-dimensional array of the same class as the
+        c_maj_1 (array): Boolean mask of filtered entries of same class as
             input 'arr_1'.
-        c_maj_2 (array): Filtered n-dimensional array of the same class as the
+        c_maj_2 (array): Boolean mask of filtered entries of same class as
             input 'arr_2'.
 
     Raises:
@@ -399,4 +471,4 @@ def dist_majority(arr_1, arr_2, **kwargs):
         elif d1 < d2:
             c_maj[i] = 2
 
-    return arr[c_maj == 1], arr[c_maj == 2]
+    return c_maj == 1, c_maj == 2

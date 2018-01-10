@@ -25,8 +25,5 @@ __maintainer__ = "Matheus Boni Vicari"
 __email__ = "matheus.boni.vicari@gmail.com"
 __status__ = "Development"
 
-__all__ = ['classification', 'utility']
 
-
-from classification import *
-from utility import *
+from automated_separation import large_tree_1

@@ -17,7 +17,7 @@ with open('requirements.txt') as f:
 
 setup(
     name="tlseparation",
-    version="1.2.1.1",
+    version="1.2.1.2",
     author='Matheus Boni Vicari',
     author_email='matheus.boni.vicari@gmail.com',
     packages=find_packages(),

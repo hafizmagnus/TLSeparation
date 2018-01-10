@@ -1,31 +1,20 @@
 # Copyright (c) 2017, Matheus Boni Vicari, TLSeparation Project
 # All rights reserved.
 #
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
 #
-#     1. Redistributions of source code must retain the above copyright notice,
-#        this list of conditions and the following disclaimer.
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
 #
-#     2. Redistributions in binary form must reproduce the above copyright
-#        notice, this list of conditions and the following disclaimer in the
-#        documentation and/or other materials provided with the distribution.
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
 #
-#     3. Neither the name of the Raysect Project nor the names of its
-#        contributors may be used to endorse or promote products derived from
-#        this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 
 __author__ = "Matheus Boni Vicari"
 __copyright__ = "Copyright 2017, TLSeparation Project"
@@ -37,13 +26,43 @@ __email__ = "matheus.boni.vicari@gmail.com"
 __status__ = "Development"
 
 import numpy as np
-from knnsearch import set_nbrs_knn
+from knnsearch import (set_nbrs_knn, set_nbrs_rad)
+
+
+def detect_rad_nn(arr, rad):
+
+    """
+    Calculates an average of number of neighbors based on a fixed radius
+    around each point in a point cloud.
+
+    Args:
+        arr (array): Three-dimensional (m x n) array of a point cloud, where
+            the coordinates are represented in the columns (n) and the points
+            are represented in the rows (m).
+        rad (float): Radius distance to select neighboring points.
+
+    Returns
+        mean_knn (int): Average number of points inside a radius 'rad' around
+            each point in 'arr'.
+
+    """
+
+    # Performin Nearest Neighbors search for the whole point cloud.
+    indices = set_nbrs_rad(arr, arr, rad, return_dist=False)
+
+    # Counting number of points around each point in 'arr'.
+    indices_len = [len(i) for i in indices]
+
+    # Calculates a mean of all neighboring point counts.
+    mean_knn = np.mean(indices_len).astype(int)
+
+    return mean_knn
 
 
 def detect_nn_dist(arr, knn, sigma=1):
 
     """
-    Function to calculate the optimum distance among neighboring points.
+    Calcuates the optimum distance among neighboring points.
 
     Args:
         arr (array): N-dimensional array (m x n) containing a set of
